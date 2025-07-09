@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Clases personalizadas para alturas de cartas */
+.h-18 {
+  height: 4.5rem; /* 72px */
+}
+
+.h-20 {
+  height: 5rem; /* 80px */
+}
+
+/* Mejoras de responsividad */
+@media (max-width: 640px) {
+  .aspect-\[3\/4\] {
+    aspect-ratio: 3/4;
+  }
+}
+
+/* Prevenir overflow horizontal */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Mejorar scroll en móviles */
+body {
+  -webkit-overflow-scrolling: touch;
+}
