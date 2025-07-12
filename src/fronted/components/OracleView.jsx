@@ -1,10 +1,12 @@
 import React from 'react';
+import { useTheme } from '../../hooks/useTheme.js';
 
 /**
  * Componente de vista del Oráculo
  * Solo maneja la presentación de los mensajes del oráculo
  */
 const OracleView = ({ message, gameState }) => {
+  const { theme } = useTheme();
   // Determinar el estilo del oráculo basado en el estado del juego
   const getOracleStyle = () => {
     switch (gameState) {
@@ -13,15 +15,15 @@ const OracleView = ({ message, gameState }) => {
       case 'lost':
         return 'from-red-600 to-rose-600 text-red-100';
       case 'playing':
-        return 'from-purple-600 to-indigo-600 text-purple-100';
+        return theme.oracle;
       case 'shuffling':
         return 'from-blue-600 to-cyan-600 text-blue-100';
       default:
-        return 'from-purple-600 to-pink-600 text-purple-100';
+        return theme.oracle;
     }
   };
 
-  // Determinar el emoji del oráculo basado en el estado
+  // Determinar el emoji del oráculo basado en el estado y tema
   const getOracleEmoji = () => {
     switch (gameState) {
       case 'won':
@@ -29,11 +31,11 @@ const OracleView = ({ message, gameState }) => {
       case 'lost':
         return '💀';
       case 'playing':
-        return '🔮';
+        return theme.emoji;
       case 'shuffling':
         return '🌀';
       default:
-        return '🔮';
+        return theme.emoji;
     }
   };
 

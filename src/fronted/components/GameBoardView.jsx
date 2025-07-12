@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../../hooks/useTheme.js';
 import CardGroupView from './CardGroupView.jsx';
 
 /**
@@ -13,6 +14,7 @@ const GameBoardView = ({
   gameMode, 
   boardStructure = [] 
 }) => {
+  const { theme } = useTheme();
   return (
     <div className="w-full max-w-6xl xl:max-w-7xl 2xl:max-w-8xl mx-auto">
       {/* Información del estado actual */}
@@ -44,9 +46,9 @@ const GameBoardView = ({
       </div>
 
       {/* Tablero de juego - Cuadrícula 4x4 */}
-      <div className="relative bg-gradient-to-br from-green-900/40 to-green-800/40 rounded-3xl border-4 border-yellow-600/50 shadow-2xl p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12">
+      <div className={`relative bg-gradient-to-br ${theme.board} rounded-3xl border-4 ${theme.border} shadow-2xl p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 hover-glow`}>
         {/* Efectos de fondo del tablero */}
-        <div className="absolute inset-0 bg-gradient-to-br from-green-600/10 via-transparent to-green-800/10 rounded-3xl"></div>
+        <div className={`absolute inset-0 bg-gradient-to-br ${theme.board} opacity-20 rounded-3xl`}></div>
         
         {/* Cuadrícula de cartas */}
         <div className="relative grid grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8 xl:gap-10 w-full max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto">
