@@ -10,9 +10,9 @@
  export default function CinematicRiffleShuffle() {
    const containerRef = useRef();
    const [isAnimating, setIsAnimating] = useState(false);
-   const [currentPhase, setCurrentPhase] = useState("Preparando...");
+   const [, setCurrentPhase] = useState("Preparando...");
    const [particlesRef, setParticlesRef] = useState([]);
-   const [cardPositions, setCardPositions] = useState(new Map());
+   const [, setCardPositions] = useState(new Map());
    const cards = Array.from({ length: CARD_COUNT }, (_, i) => i);
  
    // Sistema de detección de colisiones mejorado
@@ -186,7 +186,7 @@
  
            shuffledOrder.forEach((item, i) => {
              setTimeout(() => {
-               const { card, side, index, burst = 0 } = item;
+               const { card, side, burst = 0 } = item;
                
                // Calcular posición objetivo con anti-colisión
                const baseX = (i - shuffledOrder.length / 2) * 8;
@@ -269,10 +269,10 @@
          }, 2000);
        }, 1800);
      }, 300);
-   }, [isAnimating, findSafePosition, generateParticles, checkCollision]);
+   }, [isAnimating, findSafePosition, generateParticles]);
  
    useEffect(() => {
-     cinematicRiffleShuffle();
+    //  cinematicRiffleShuffle(); 
    }, []);
  
    return (

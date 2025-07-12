@@ -1,19 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { GameAPI } from '../../backend/index.js';
-import GameBoardView from './GameBoardView.jsx';
+import { useTheme } from '../../hooks/useTheme.js';
+import { useGameStats } from '../../hooks/useGameStats.js';
+import { useNotifications } from '../../components/NotificationSystem.jsx';
+import { achievements } from '../../hooks/useGameStats.js';
+import GameBoardViewImproved from './GameBoardViewImproved.jsx';
 import OracleView from './OracleView.jsx';
-import GameControlsView from './GameControlsView.jsx';
+import GameControlsViewEnhanced from './GameControlsViewEnhanced.jsx';
 import ModalView from './ModalView.jsx';
 import RiffleShuffleView from './RiffleShuffleView.jsx';
+import StatsPanel from '../../components/StatsPanel.jsx';
+import GenieChat from '../../components/GenieChat.jsx';
 
 /**
  * Componente principal de la vista del juego
- * Solo maneja la presentación, toda la lógica está en el backend
+ * Integra temas, estadísticas, notificaciones y toda la lógica del juego
  */
 const OracleGameView = () => {
+  // Hooks personalizados
+  const { theme, isAnimating } = useTheme();
+  const { startGame, recordMove, endGame, } = useGameStats();
+  const { showSuccess, showError, showAchievement, showInfo, showWarning } = useNotifications();
+
   // Estado de la vista (solo UI)
   const [gameState, setGameState] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
+  const [showGenieChat, setShowGenieChat] = useState(false);
 
   // Inicializar el juego al montar el componente
   useEffect(() => {
@@ -43,6 +56,10 @@ const OracleGameView = () => {
       const newGameState = GameAPI.startGame();
       setGameState(newGameState);
       
+      // Iniciar seguimiento de estadísticas
+      startGame();
+      showInfo('¡Nuevo juego iniciado! Que la suerte te acompañe.', 'Juego Iniciado');
+      
       // Simular el tiempo de barajado
       setTimeout(() => {
         const readyState = GameAPI.finishShuffle();
@@ -56,6 +73,7 @@ const OracleGameView = () => {
       }, 8000);
     } catch (error) {
       console.error('Error al iniciar el juego:', error);
+      showError('Error al iniciar el juego. Inténtalo de nuevo.');
     }
   };
 
@@ -79,12 +97,15 @@ const OracleGameView = () => {
       const clickResult = GameAPI.clickGroup(groupNumber);
       
       if (clickResult.success) {
+        recordMove(); // Registrar movimiento para estadísticas
         handleGameStateUpdate(clickResult);
       } else {
         console.warn('Clic no válido:', clickResult.message);
+        showWarning(clickResult.message || 'Movimiento no válido');
       }
     } catch (error) {
       console.error('Error al hacer clic en el grupo:', error);
+      showError('Error al procesar el movimiento');
     }
   };
 
@@ -94,12 +115,47 @@ const OracleGameView = () => {
   const handleGameStateUpdate = (newState) => {
     setGameState(newState);
     
+    // Verificar si el juego terminó
+    if (newState.gameState === 'won') {
+      const gameResult = endGame(true);
+      showSuccess('¡Felicitaciones! Has completado el Oráculo de la Suerte', '🏆 Victoria');
+      
+      // Mostrar logros desbloqueados
+      if (gameResult.newAchievements && gameResult.newAchievements.length > 0) {
+        gameResult.newAchievements.forEach(achievementId => {
+          const achievement = achievements[achievementId];
+          if (achievement) {
+            setTimeout(() => {
+              showAchievement(achievement);
+            }, 1000);
+          }
+        });
+      }
+      
+      return;
+    } else if (newState.gameState === 'lost') {
+     // const gameResult = endGame(false);
+      showError('El Oráculo ha decidido tu destino. ¡Inténtalo de nuevo!', '💀 Derrota');
+      return;
+    }
+    
     // Manejar acciones automáticas basadas en el estado
     if (newState.nextAction === 'moveCard') {
-      setTimeout(() => {
-        const moveResult = GameAPI.moveCard(newState.currentCard, newState.targetGroup);
-        handleGameStateUpdate(moveResult);
-      }, newState.moveDelay || 1500);
+      recordMove(); // Registrar movimiento
+      
+      // En modo automático, mover inmediatamente
+      if (newState.gameMode === 'automatic') {
+        setTimeout(() => {
+          const moveResult = GameAPI.moveCard(newState.currentCard, newState.targetGroup);
+          handleGameStateUpdate(moveResult);
+        }, 800); // Tiempo más corto para modo automático
+      } else {
+        // En modo manual, esperar a que el usuario haga clic
+        setTimeout(() => {
+          const moveResult = GameAPI.moveCard(newState.currentCard, newState.targetGroup);
+          handleGameStateUpdate(moveResult);
+        }, newState.moveDelay || 1500);
+      }
     } else if (newState.nextAction === 'waitForNextTurn') {
       setTimeout(() => {
         const nextTurnState = GameAPI.prepareNextTurn(
@@ -109,9 +165,26 @@ const OracleGameView = () => {
         handleGameStateUpdate(nextTurnState);
       }, newState.continueDelay || 1000);
     } else if (newState.nextAction === 'autoReveal') {
+      // En modo automático, continuar automáticamente
       setTimeout(() => {
         const autoRevealResult = GameAPI.revealCard(newState.targetGroup);
         handleGameStateUpdate(autoRevealResult);
+      }, newState.gameSpeed || 1000);
+    } else if (newState.nextAction === 'waitForClick' && newState.gameMode === 'automatic') {
+      // Si está en modo automático pero esperando clic, continuar automáticamente
+      setTimeout(() => {
+        // Buscar un grupo con cartas para revelar
+        const availableGroups = Object.keys(newState.groups || {}).filter(groupNum => {
+          const group = newState.groups[groupNum];
+          return group && group.cards.length > 0;
+        });
+        
+        if (availableGroups.length > 0) {
+          // Elegir el primer grupo disponible o uno aleatorio
+          const targetGroup = parseInt(availableGroups[0]);
+          const autoRevealResult = GameAPI.revealCard(targetGroup);
+          handleGameStateUpdate(autoRevealResult);
+        }
       }, newState.gameSpeed || 1000);
     }
   };
@@ -128,17 +201,26 @@ const OracleGameView = () => {
     }
   };
 
+  /**
+   * Maneja las recomendaciones del genio
+   */
+  const handleGenieRecommendation = (mode) => {
+    handleSettingsUpdate({ gameMode: mode });
+  };
+
   // Mostrar loading mientras se inicializa
   if (isLoading || !gameState) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-        <div className="text-white text-xl">Cargando el Oráculo...</div>
+      <div className={`min-h-screen bg-gradient-to-br ${theme.primary} flex items-center justify-center`}>
+        <div className="text-white text-xl loading-shimmer p-4 rounded-lg">
+          Cargando el Oráculo...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 relative">
+    <div className={`min-h-screen bg-gradient-to-br ${theme.primary} relative ${isAnimating ? 'animate-theme-transition' : ''}`}>
       {/* Efectos de fondo */}
       <div className="absolute inset-0 opacity-20">
         <div className="w-full h-full bg-gradient-to-br from-purple-800/10 to-blue-800/10"></div>
@@ -174,19 +256,20 @@ const OracleGameView = () => {
               <p className="text-base sm:text-lg md:text-xl text-gray-300 mb-6 sm:mb-8 max-w-2xl mx-auto px-4">
                 Un juego místico donde el destino decide tu suerte. Ordena las 52 cartas en sus grupos correspondientes sin caer en las trampas del oráculo.
               </p>
-              <GameControlsView
+              <GameControlsViewEnhanced
                 gameMode={gameState.gameMode}
                 gameSpeed={gameState.gameSpeed}
                 onStartGame={handleStartGame}
                 onResetGame={handleResetGame}
                 onSettingsChange={handleSettingsUpdate}
                 gameState={gameState.gameState}
+                onShowStats={() => setShowStatsPanel(true)}
               />
             </div>
           )}
 
           {(gameState.gameState === 'playing' || gameState.gameState === 'won' || gameState.gameState === 'lost') && (
-            <GameBoardView
+            <GameBoardViewImproved
               groups={gameState.groups}
               currentCard={gameState.currentCard}
               onGroupClick={handleGroupClick}
@@ -200,7 +283,7 @@ const OracleGameView = () => {
         {/* Footer con controles */}
         {gameState.gameState !== 'menu' && (
           <div className="flex-shrink-0 p-4">
-            <GameControlsView
+            <GameControlsViewEnhanced
               gameMode={gameState.gameMode}
               gameSpeed={gameState.gameSpeed}
               onStartGame={handleStartGame}
@@ -208,9 +291,74 @@ const OracleGameView = () => {
               onSettingsChange={handleSettingsUpdate}
               gameState={gameState.gameState}
               gameHistory={gameState.gameHistory}
+              onShowStats={() => setShowStatsPanel(true)}
             />
           </div>
         )}
+      </div>
+
+      {/* Botones flotantes */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
+        {/* Botón del Genio del Oráculo */}
+        <button
+          onClick={() => setShowGenieChat(true)}
+          className={`
+            bg-gradient-to-r from-amber-500 to-orange-500 
+            text-white p-3 rounded-full shadow-2xl
+            hover-lift hover-glow animate-float
+            transition-all duration-300
+          `}
+          title="Consultar al Genio del Oráculo"
+        >
+          <span className="text-xl">🧞‍♂️</span>
+        </button>
+
+        {/* Botón de estadísticas */}
+        <button
+          onClick={() => setShowStatsPanel(true)}
+          className={`
+            bg-gradient-to-r ${theme.secondary} 
+            text-white p-3 rounded-full shadow-2xl
+            hover-lift hover-glow
+            transition-all duration-300
+          `}
+          title="Ver Estadísticas"
+        >
+          <span className="text-xl">📊</span>
+        </button>
+      </div>
+
+      {/* Panel de estadísticas */}
+      <StatsPanel 
+        isOpen={showStatsPanel} 
+        onClose={() => setShowStatsPanel(false)} 
+      />
+
+      {/* Chat del Genio */}
+      <GenieChat
+        isOpen={showGenieChat}
+        onClose={() => setShowGenieChat(false)}
+        gameState={gameState}
+        gameHistory={gameState.gameHistory || []}
+        onApplyRecommendation={handleGenieRecommendation}
+      />
+
+      {/* Efectos de partículas para el fondo */}
+      <div className="particles">
+        {Array.from({ length: 20 }, (_, i) => (
+          <div
+            key={i}
+            className="particle"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              width: `${Math.random() * 4 + 2}px`,
+              height: `${Math.random() * 4 + 2}px`,
+              animationDelay: `${Math.random() * 6}s`,
+              animationDuration: `${Math.random() * 3 + 3}s`
+            }}
+          />
+        ))}
       </div>
     </div>
   );

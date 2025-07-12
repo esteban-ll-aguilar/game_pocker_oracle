@@ -5,7 +5,16 @@ import CardView from './CardView.jsx';
  * Componente de vista para un grupo de cartas
  * Solo maneja la presentación visual del grupo
  */
-const CardGroupView = ({ groupNumber, group, onClick, isClickable, isCenter, currentCard }) => {
+const CardGroupView = ({ 
+  groupNumber, 
+  group, 
+  onClick, 
+  isClickable, 
+  isCenter, 
+  currentCard, 
+  isBlocked = false, 
+  allowedGroup = null 
+}) => {
   if (!group) return null;
 
   const { cards, revealed } = group;
@@ -13,6 +22,12 @@ const CardGroupView = ({ groupNumber, group, onClick, isClickable, isCenter, cur
 
   // Determinar si este grupo debe resaltarse
   const shouldHighlight = currentCard && currentCard.numericValue === groupNumber;
+  
+  // Determinar si este grupo está bloqueado
+  const isGroupBlocked = isBlocked && allowedGroup !== null && allowedGroup !== groupNumber;
+  
+  // Determinar si este es el grupo objetivo
+  const isTargetGroup = allowedGroup === groupNumber;
 
   return (
     <div className="relative w-full h-full">
@@ -85,6 +100,29 @@ const CardGroupView = ({ groupNumber, group, onClick, isClickable, isCenter, cur
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute -inset-2 border-2 border-yellow-400/40 rounded-xl animate-pulse"></div>
             <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 to-amber-400/10 rounded-xl"></div>
+          </div>
+        )}
+
+        {/* Efectos de bloqueo */}
+        {isGroupBlocked && (
+          <div className="absolute inset-0 bg-black/60 rounded-xl flex items-center justify-center z-30">
+            <div className="text-center">
+              <div className="text-2xl mb-1">🔒</div>
+              <div className="text-xs text-gray-300 font-bold">BLOQUEADO</div>
+            </div>
+          </div>
+        )}
+
+        {/* Efectos de grupo objetivo */}
+        {isTargetGroup && currentCard && (
+          <div className="absolute inset-0 pointer-events-none z-25">
+            <div className="absolute -inset-2 border-4 border-green-400 rounded-xl animate-pulse shadow-lg shadow-green-400/50"></div>
+            <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-xl"></div>
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold shadow-lg animate-bounce">
+                ¡COLOCA AQUÍ!
+              </div>
+            </div>
           </div>
         )}
       </div>

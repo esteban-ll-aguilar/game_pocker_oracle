@@ -173,15 +173,16 @@ class GameService {
       };
     }
 
-    const cardToReveal = group.cards[0]; // Primera carta del grupo
+    // Solo revelar UNA carta (la primera del grupo)
+    const cardToReveal = group.cards[0];
     
-    // Actualizar el grupo
+    // Remover solo la primera carta del grupo
     this.groups[groupNumber] = {
       ...group,
-      cards: group.cards.slice(1),
-      revealed: [...group.revealed, cardToReveal]
+      cards: group.cards.slice(1) // Quitar solo la primera carta
     };
 
+    // La carta revelada se convierte en la carta actual (no se agrega a revealed aún)
     this.currentCard = cardToReveal;
     
     // Agregar al historial
@@ -189,7 +190,8 @@ class GameService {
       card: cardToReveal,
       fromGroup: groupNumber,
       toGroup: cardToReveal.numericValue,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      action: 'reveal'
     });
 
     const targetGroup = cardToReveal.numericValue;
@@ -202,7 +204,8 @@ class GameService {
         gameState: this.gameState,
         currentCard: cardToReveal,
         groups: this.groups,
-        message: `¡El oráculo ha hablado! La carta ${cardToReveal.value}${cardToReveal.suit} pertenece al mismo grupo y no quedan más movimientos. Has perdido...`
+        message: `¡El oráculo ha hablado! La carta ${cardToReveal.value}${cardToReveal.suit} pertenece al mismo grupo y no quedan más movimientos. Has perdido...`,
+        isBlocked: true
       };
     }
 
@@ -212,7 +215,9 @@ class GameService {
       currentCard: cardToReveal,
       groups: this.groups,
       targetGroup,
-      message: `¡Una ${cardToReveal.value}${cardToReveal.suit} ha sido revelada! Debe ir al grupo ${targetGroup}...`
+      message: `¡Una ${cardToReveal.value}${cardToReveal.suit} ha sido revelada! Debe ir al grupo ${targetGroup}...`,
+      isBlocked: true, // Bloquear otros grupos hasta que se mueva esta carta
+      allowedGroup: targetGroup // Solo este grupo puede ser clickeado
     };
   }
 

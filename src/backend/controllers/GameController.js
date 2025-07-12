@@ -125,12 +125,16 @@ class GameController {
   handleCardMovement(card, targetGroup) {
     const moveResult = this.gameService.moveCardToTargetGroup(card, targetGroup);
     
+    // Limpiar la carta actual después de moverla
+    this.gameService.currentCard = null;
+    
     if (moveResult.isVictory) {
       // Juego ganado
       const message = this.messageService.getVictoryMessage();
       return {
         ...moveResult,
         message,
+        currentCard: null,
         boardStructure: this.boardService.generateBoardStructure(moveResult.groups)
       };
     }
@@ -142,6 +146,7 @@ class GameController {
     return {
       ...moveResult,
       message: placedMessage,
+      currentCard: null, // Limpiar carta actual
       boardStructure,
       nextAction: 'waitForNextTurn',
       continueDelay: 1000
@@ -189,6 +194,22 @@ class GameController {
         success: false,
         message: 'Acción no permitida en el estado actual del juego'
       };
+    }
+
+    // Si hay una carta revelada, solo permitir clic en el grupo correcto
+    if (gameState.currentCard) {
+      const targetGroup = gameState.currentCard.numericValue;
+      if (groupNumber !== targetGroup) {
+        return {
+          success: false,
+          message: `Debes colocar la carta ${gameState.currentCard.value}${gameState.currentCard.suit} en el grupo ${targetGroup}`,
+          isBlocked: true,
+          allowedGroup: targetGroup
+        };
+      }
+      
+      // Mover la carta al grupo correcto
+      return this.handleCardMovement(gameState.currentCard, targetGroup);
     }
 
     if (!this.gameService.canClickGroup(groupNumber)) {
