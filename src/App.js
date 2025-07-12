@@ -1,10 +1,14 @@
 import React from 'react';
-import OracleGame from './components/OracleGame';
+import { OracleGameView } from './fronted/index.js';
 
+/**
+ * Componente principal de la aplicación
+ * Usa la nueva arquitectura separada frontend/backend
+ */
 function App() {
   return (
     <div className="App">
-      <OracleGame />
+      <OracleGameView />
     </div>
   );
 } 
