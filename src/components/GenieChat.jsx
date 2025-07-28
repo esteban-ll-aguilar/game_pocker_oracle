@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useTheme } from '../hooks/useTheme.js';
 import { useNotifications } from './NotificationSystem.jsx';
 
@@ -20,13 +20,13 @@ const GenieChat = ({ isOpen, onClose, gameState, gameHistory, onApplyRecommendat
     "Analiza mi situación actual",
     "Dame ánimos",
     "¿Cómo voy hasta ahora?"
-  ]);
+  ]); 
   
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
   // Simular el servicio del genio (normalmente vendría del backend)
-  const genieService = {
+  const genieService = useMemo(() => ({
     answerQuestion: (question, gameState, gameHistory) => {
       const q = question.toLowerCase();
       
@@ -127,7 +127,7 @@ const GenieChat = ({ isOpen, onClose, gameState, gameHistory, onApplyRecommendat
       ];
       return greetings[Math.floor(Math.random() * greetings.length)];
     }
-  };
+  }), []); 
 
   // Inicializar chat con saludo del genio
   useEffect(() => {
@@ -136,11 +136,11 @@ const GenieChat = ({ isOpen, onClose, gameState, gameHistory, onApplyRecommendat
       setMessages([{
         id: Date.now(),
         type: 'genie',
-        content: greeting,
+        content: greeting, 
         timestamp: new Date()
       }]);
     }
-  }, [isOpen]);
+  }, [isOpen, messages.length, genieService]);
 
   // Scroll automático al final
   useEffect(() => {

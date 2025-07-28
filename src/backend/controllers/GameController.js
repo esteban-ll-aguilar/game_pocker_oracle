@@ -388,7 +388,7 @@ class GameController {
    */
   updateGameSettings(config) {
     // Actualizar la configuración del juego en el servicio
-    const updatedConfig = this.gameService.updateGameConfiguration(config);
+    this.gameService.updateGameConfiguration(config);
     const gameState = this.gameService.getCurrentGameState();
     
     let configMessage = 'Configuración actualizada:';

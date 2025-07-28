@@ -36,11 +36,12 @@ const OracleGameView = () => {
   // Inicializar el juego al montar el componente
   useEffect(() => {
     initializeGame();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
    * Inicializa el juego usando el backend
-   */
+   */ 
   const initializeGame = async () => {
     try {
       setIsLoading(true);
@@ -696,6 +697,7 @@ const OracleGameView = () => {
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameState?.gameState, gameState?.nextAction, gameState?.gameMode]);
 
   // Mostrar loading mientras se inicializa
@@ -707,7 +709,7 @@ const OracleGameView = () => {
         </div>
       </div>
     );
-  }
+  } 
 
   return (
     <div className={`min-h-screen bg-gradient-to-br ${theme.primary} relative ${isAnimating ? 'animate-theme-transition' : ''}`}>
