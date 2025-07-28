@@ -89,13 +89,6 @@ const CardView = ({ card, isRevealed, isTopCard, isInRevealedPile, groupNumber }
 
       {/* Brillo sutil */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-lg"></div>
-
-      {/* Indicador de grupo de destino (solo si no está en pila revelada) */}
-      {!isInRevealedPile && (
-        <div className="absolute -bottom-1 -right-1 bg-purple-600 text-white text-xs font-bold rounded-full w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 lg:w-7 lg:h-7 flex items-center justify-center border border-white shadow-sm">
-          <span className="text-xs sm:text-sm md:text-base">{card.numericValue}</span>
-        </div>
-      )}
     </div>
   );
 };

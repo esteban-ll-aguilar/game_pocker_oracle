@@ -9,6 +9,7 @@ import OracleView from './OracleView.jsx';
 import GameControlsViewEnhanced from './GameControlsViewEnhanced.jsx';
 import ModalView from './ModalView.jsx';
 import RiffleShuffleView from './RiffleShuffleView.jsx';
+import CardRevealModal from './CardRevealModal.jsx';
 import StatsPanel from '../../components/StatsPanel.jsx';
 import GenieChat from '../../components/GenieChat.jsx';
 
@@ -27,6 +28,10 @@ const OracleGameView = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [showGenieChat, setShowGenieChat] = useState(false);
+  
+  // Estado del modal de revelación
+  const [showCardReveal, setShowCardReveal] = useState(false);
+  const [revealedCardInfo, setRevealedCardInfo] = useState(null);
 
   // Inicializar el juego al montar el componente
   useEffect(() => {
@@ -119,6 +124,18 @@ const OracleGameView = () => {
    */
   const handleGameStateUpdate = (newState) => {
     setGameState(newState);
+    
+    // Mostrar modal de revelación si hay una carta revelada (solo una vez por carta)
+    if (newState.currentCard && newState.nextAction === 'moveCard' && !showCardReveal) {
+      setRevealedCardInfo({
+        card: newState.currentCard,
+        fromGroup: newState.gameHistory && newState.gameHistory.length > 0 
+          ? newState.gameHistory[newState.gameHistory.length - 1].fromGroup 
+          : 13,
+        targetGroup: newState.currentCard.numericValue
+      });
+      setShowCardReveal(true);
+    }
     
     // Verificar si el juego terminó
     if (newState.gameState === 'won') {
@@ -224,6 +241,14 @@ const OracleGameView = () => {
     handleSettingsUpdate({ gameMode: mode });
   };
 
+  /**
+   * Cierra el modal de revelación
+   */
+  const handleCloseCardReveal = () => {
+    setShowCardReveal(false);
+    setRevealedCardInfo(null);
+  };
+
   // Mostrar loading mientras se inicializa
   if (isLoading || !gameState) {
     return (
@@ -251,6 +276,16 @@ const OracleGameView = () => {
           <RiffleShuffleView />
         </div>
       </ModalView>
+
+      {/* Modal de revelación de carta */}
+      <CardRevealModal
+        isOpen={showCardReveal}
+        card={revealedCardInfo?.card}
+        fromGroup={revealedCardInfo?.fromGroup}
+        targetGroup={revealedCardInfo?.targetGroup}
+        onClose={handleCloseCardReveal}
+        duration={3000}
+      />
 
       {/* Contenido principal */}
       <div className="relative z-10 flex flex-col min-h-screen">
