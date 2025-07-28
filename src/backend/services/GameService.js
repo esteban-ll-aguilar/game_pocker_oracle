@@ -9,8 +9,48 @@ class GameService {
     this.groups = {};
     this.currentCard = null;
     this.gameHistory = [];
-    this.gameMode = 'manual'; // manual, automatic
-    this.gameSpeed = 1000;
+    
+    // Cargar preferencias guardadas del usuario
+    this.loadUserPreferences();
+  }
+  
+  /**
+   * Carga las preferencias del usuario desde localStorage
+   */
+  loadUserPreferences() {
+    try {
+      // Cargar el modo de juego guardado, o usar 'manual' por defecto
+      // Intentar primero con la clave 'gameMode' (la nueva estándar)
+      let savedGameMode = localStorage.getItem('gameMode');
+      if (!savedGameMode) {
+        // Si no existe, intentar con la clave legacy
+        savedGameMode = localStorage.getItem('oracle-game-mode');
+      }
+      this.gameMode = savedGameMode || 'manual';
+      
+      // Cargar la velocidad guardada, o usar 1000 por defecto
+      // Intentar primero con la clave 'gameSpeed' (la nueva estándar)
+      let savedGameSpeed = localStorage.getItem('gameSpeed');
+      if (!savedGameSpeed) {
+        // Si no existe, intentar con la clave legacy
+        savedGameSpeed = localStorage.getItem('oracle-game-speed');
+      }
+      this.gameSpeed = savedGameSpeed ? parseInt(savedGameSpeed) : 1000;
+      
+      console.log(`Preferencias cargadas: modo=${this.gameMode}, velocidad=${this.gameSpeed}`);
+      
+      // Guardar siempre en ambas claves para garantizar compatibilidad
+      localStorage.setItem('gameMode', this.gameMode);
+      localStorage.setItem('oracle-game-mode', this.gameMode);
+      
+      localStorage.setItem('gameSpeed', this.gameSpeed.toString());
+      localStorage.setItem('oracle-game-speed', this.gameSpeed.toString());
+    } catch (error) {
+      // Si hay algún error, usar valores por defecto
+      console.error('Error al cargar preferencias del usuario:', error);
+      this.gameMode = 'manual';
+      this.gameSpeed = 1000;
+    }
   }
 
   /**
@@ -127,6 +167,10 @@ class GameService {
    * @returns {Object} Estado inicial del juego
    */
   startNewGame() {
+    // Guardar la configuración actual antes de reiniciar
+    const currentGameMode = this.gameMode;
+    const currentGameSpeed = this.gameSpeed;
+    
     this.gameState = 'shuffling';
     const newDeck = this.createStandardDeck();
     const shuffledDeck = this.performRealisticShuffle(newDeck);
@@ -135,10 +179,16 @@ class GameService {
     this.currentCard = null;
     this.gameHistory = [];
     
+    // Mantener la configuración del usuario
+    this.gameMode = currentGameMode;
+    this.gameSpeed = currentGameSpeed;
+    
     return {
       gameState: this.gameState,
       deck: this.deck,
       groups: this.groups,
+      gameMode: this.gameMode,
+      gameSpeed: this.gameSpeed,
       message: 'Las cartas están siendo barajadas por las fuerzas del destino...'
     };
   }
@@ -278,14 +328,25 @@ class GameService {
    * @returns {Object} Estado inicial del juego
    */
   resetGameToInitialState() {
+    // Guardar la configuración actual antes de reiniciar
+    const currentGameMode = this.gameMode;
+    const currentGameSpeed = this.gameSpeed;
+    
+    // Reiniciar el estado del juego
     this.gameState = 'menu';
     this.deck = [];
     this.groups = {};
     this.currentCard = null;
     this.gameHistory = [];
     
+    // Restaurar la configuración del usuario
+    this.gameMode = currentGameMode;
+    this.gameSpeed = currentGameSpeed;
+    
     return {
       gameState: this.gameState,
+      gameMode: this.gameMode,
+      gameSpeed: this.gameSpeed,
       message: '¡Bienvenido de vuelta al Oráculo de la Suerte! ¿Estás listo para otro desafío?'
     };
   }
@@ -311,8 +372,37 @@ class GameService {
    * @param {Object} config - Nueva configuración
    */
   updateGameConfiguration(config) {
-    if (config.gameMode) this.gameMode = config.gameMode;
-    if (config.gameSpeed) this.gameSpeed = config.gameSpeed;
+    if (config.gameMode !== undefined) {
+      this.gameMode = config.gameMode;
+      // Guardar la preferencia de modo en localStorage para que persista
+      try {
+        // Guardar en ambas claves para garantizar compatibilidad
+        localStorage.setItem('gameMode', config.gameMode);
+        localStorage.setItem('oracle-game-mode', config.gameMode);
+        console.log(`Modo de juego actualizado y guardado: ${config.gameMode}`);
+      } catch (error) {
+        console.error('Error al guardar la configuración del modo de juego:', error);
+      }
+    }
+    
+    if (config.gameSpeed !== undefined) {
+      this.gameSpeed = config.gameSpeed;
+      // Guardar la preferencia de velocidad en localStorage
+      try {
+        // Guardar en ambas claves para garantizar compatibilidad
+        localStorage.setItem('gameSpeed', config.gameSpeed.toString());
+        localStorage.setItem('oracle-game-speed', config.gameSpeed.toString());
+        console.log(`Velocidad de juego actualizada y guardada: ${config.gameSpeed}`);
+      } catch (error) {
+        console.error('Error al guardar la configuración de velocidad:', error);
+      }
+    }
+    
+    // Devolver el estado actualizado para facilitar la comunicación con el frontend
+    return {
+      gameMode: this.gameMode,
+      gameSpeed: this.gameSpeed
+    };
   }
 
   /**
@@ -328,21 +418,122 @@ class GameService {
 
     if (availableGroups.length === 0) return null;
 
-    // Estrategia: priorizar grupos con más cartas para maximizar opciones
-    const groupsByCardCount = availableGroups.map(groupNum => ({
-      groupNum,
-      cardCount: this.groups[groupNum].cards.length,
-      revealedCount: this.groups[groupNum].revealed.length
-    })).sort((a, b) => {
-      // Priorizar grupos con más cartas ocultas
-      if (b.cardCount !== a.cardCount) {
-        return b.cardCount - a.cardCount;
+    // Recopilar estadísticas del juego actual para tomar decisiones informadas
+    const gameStats = this.getGameStatistics();
+    
+    // Calcular puntuación para cada grupo basada en múltiples factores
+    const groupScores = availableGroups.map(groupNum => {
+      const group = this.groups[groupNum];
+      const revealedCount = group.revealed.length;
+      const cardCount = group.cards.length;
+      
+      // Puntuación base por cantidad de cartas
+      let score = cardCount * 10;
+      
+      // Factor 1: Grupos con muchas cartas pero pocas reveladas son valiosos
+      // Calcula el ratio de cartas ocultas/reveladas
+      const revealRatio = revealedCount > 0 ? cardCount / revealedCount : cardCount * 2;
+      score += revealRatio * 5;
+      
+      // Factor 2: Evitar grupos que ya tienen muchas cartas del mismo valor
+      // (para evitar que se vuelva muy difícil de completar)
+      const valueDistribution = {};
+      group.revealed.forEach(card => {
+        valueDistribution[card.numericValue] = (valueDistribution[card.numericValue] || 0) + 1;
+      });
+      
+      const maxDuplicates = Object.values(valueDistribution).reduce((max, count) => Math.max(max, count), 0);
+      if (maxDuplicates > 2) {
+        // Penalizar grupos con muchas cartas del mismo valor
+        score -= maxDuplicates * 8;
       }
-      // Si tienen las mismas cartas, priorizar los que tienen menos reveladas
-      return a.revealedCount - b.revealedCount;
+      
+      // Factor 3: Priorizar grupos que coinciden con los valores más frecuentes en el tablero
+      // si el juego está avanzado (para aumentar probabilidades de coincidencia)
+      if (gameStats.completionPercentage > 40) {
+        const mostFrequentValues = this.getMostFrequentCardValues();
+        // Bonus si el grupo coincide con valores frecuentes
+        if (mostFrequentValues.includes(groupNum)) {
+          score += 15;
+        }
+      }
+      
+      // Factor 4: Estrategia situacional basada en el estado del juego
+      if (gameStats.completionPercentage < 30) {
+        // Al inicio del juego, explorar más opciones (grupos grandes)
+        score += cardCount * 3;
+      } else if (gameStats.completionPercentage > 70) {
+        // Al final del juego, ser más conservador y focalizarse en grupos específicos
+        // Priorizar grupos que tienen un balance entre cartas y espacios para ellas
+        const targetCapacity = 4; // Ideal para grupos finales
+        const balanceScore = 15 - Math.abs(revealedCount - targetCapacity);
+        score += balanceScore > 0 ? balanceScore * 3 : 0;
+      }
+      
+      // Factor 5: Aleatoriedad controlada para evitar quedarse atascado en patrones
+      // Añadir un pequeño factor aleatorio (±10%)
+      score += (Math.random() * 10) - 5;
+      
+      return {
+        groupNum,
+        score: Math.round(score),
+        cardCount,
+        revealedCount
+      };
     });
 
-    return groupsByCardCount[0].groupNum;
+    // Ordenar por puntuación y obtener el mejor grupo
+    groupScores.sort((a, b) => b.score - a.score);
+    
+    // Registrar para depuración
+    console.log("Puntuaciones de grupos para modo automático:", 
+      groupScores.map(g => `Grupo ${g.groupNum}: ${g.score} puntos (${g.cardCount} cartas, ${g.revealedCount} reveladas)`));
+    
+    return groupScores[0].groupNum;
+  }
+  
+  /**
+   * Obtiene los valores de cartas más frecuentes en el tablero actual
+   * @returns {Array<number>} Lista de valores numéricos más frecuentes
+   */
+  getMostFrequentCardValues() {
+    // Contar todas las cartas reveladas por valor
+    const valueCount = {};
+    
+    Object.values(this.groups).forEach(group => {
+      group.revealed.forEach(card => {
+        valueCount[card.numericValue] = (valueCount[card.numericValue] || 0) + 1;
+      });
+    });
+    
+    // Ordenar por frecuencia
+    const sortedValues = Object.entries(valueCount)
+      .sort((a, b) => b[1] - a[1])
+      .map(entry => parseInt(entry[0]));
+    
+    // Devolver los 3 valores más comunes
+    return sortedValues.slice(0, 3);
+  }
+  
+  /**
+   * Obtiene estadísticas rápidas del estado actual del juego
+   * @returns {Object} Estadísticas del juego
+   */
+  getGameStatistics() {
+    let totalCards = 0;
+    let revealedCards = 0;
+    
+    Object.values(this.groups).forEach(group => {
+      totalCards += group.cards.length + group.revealed.length;
+      revealedCards += group.revealed.length;
+    });
+    
+    return {
+      totalCards,
+      revealedCards,
+      remainingCards: totalCards - revealedCards,
+      completionPercentage: Math.round((revealedCards / totalCards) * 100)
+    };
   }
 
   /**

@@ -11,6 +11,22 @@
   height: 5rem; /* 80px */
 }
 
+/* Animación personalizada de pulso lento para indicadores */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s ease-in-out infinite;
+}
+
 /* Mejoras de responsividad */
 @media (max-width: 640px) {
   .aspect-\[3\/4\] {

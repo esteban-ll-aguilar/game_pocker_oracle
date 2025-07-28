@@ -1,6 +1,7 @@
 import GameService from '../services/GameService.js';
 import OracleMessageService from '../services/OracleMessageService.js';
 import BoardLayoutService from '../services/BoardLayoutService.js';
+import OracleGenieService from '../services/OracleGenieService.js';
 
 /**
  * Controlador principal del juego
@@ -25,11 +26,22 @@ class GameController {
     const message = this.messageService.getWelcomeMessage();
     const gameState = this.gameService.getCurrentGameState();
     
+    // Determinar mensaje personalizado basado en las preferencias cargadas
+    let welcomeMessage = message;
+    if (gameState.gameMode === 'automatic') {
+      welcomeMessage += ` Modo automático activo según tus preferencias.`;
+    }
+    
     return {
       ...gameState,
-      message,
+      message: welcomeMessage,
       showShuffleModal: this.showShuffleModal,
-      boardStructure: []
+      boardStructure: [],
+      configInfo: {
+        gameMode: gameState.gameMode,
+        gameSpeed: gameState.gameSpeed,
+        isPreference: true
+      }
     };
   }
 
@@ -42,10 +54,21 @@ class GameController {
     const gameResult = this.gameService.startNewGame();
     const message = this.messageService.getShufflingMessage();
     
+    // Mensaje personalizado basado en el modo del juego
+    let modifiedMessage = message;
+    if (gameResult.gameMode === 'automatic') {
+      modifiedMessage += ` (Modo Automático activo)`;
+    }
+    
     return {
       ...gameResult,
-      message,
-      showShuffleModal: this.showShuffleModal
+      message: modifiedMessage,
+      showShuffleModal: this.showShuffleModal,
+      configInfo: {
+        gameMode: gameResult.gameMode,
+        gameSpeed: gameResult.gameSpeed,
+        isActive: true
+      }
     };
   }
 
@@ -56,14 +79,27 @@ class GameController {
   finishShufflingAndStartGame() {
     this.showShuffleModal = false;
     const gameResult = this.gameService.finishShufflingAndStartPlaying();
-    const message = this.messageService.getGameStartMessage();
+    
+    // Mensaje personalizado basado en el modo de juego
+    let message = this.messageService.getGameStartMessage();
+    if (gameResult.gameMode === 'automatic') {
+      message += ` El juego está en modo automático, observa cómo juega solo.`;
+    } else {
+      message += ` Comienza revelando cartas con tu mouse.`;
+    }
+    
     const boardStructure = this.boardService.generateBoardStructure(gameResult.groups);
     
     return {
       ...gameResult,
       message,
       showShuffleModal: this.showShuffleModal,
-      boardStructure
+      boardStructure,
+      configInfo: {
+        gameMode: gameResult.gameMode,
+        gameSpeed: gameResult.gameSpeed,
+        isActive: true
+      }
     };
   }
 
@@ -82,6 +118,7 @@ class GameController {
    */
   handleCardReveal(groupNumber) {
     const revealResult = this.gameService.revealCardFromGroup(groupNumber);
+    const gameState = this.gameService.getCurrentGameState();
     
     if (!revealResult.success) {
       // Juego perdido
@@ -95,7 +132,14 @@ class GameController {
       return {
         ...revealResult,
         message,
-        boardStructure: this.boardService.generateBoardStructure(revealResult.groups || {})
+        gameMode: gameState.gameMode, // Mantener modo de juego
+        gameSpeed: gameState.gameSpeed, // Mantener velocidad
+        boardStructure: this.boardService.generateBoardStructure(revealResult.groups || {}),
+        configInfo: {
+          gameMode: gameState.gameMode,
+          gameSpeed: gameState.gameSpeed,
+          isActive: true
+        }
       };
     }
 
@@ -112,7 +156,14 @@ class GameController {
       message,
       boardStructure,
       nextAction: 'moveCard',
-      moveDelay: 1500
+      moveDelay: 1500,
+      gameMode: gameState.gameMode, // Mantener explícitamente el modo de juego
+      gameSpeed: gameState.gameSpeed, // Mantener velocidad
+      configInfo: {
+        gameMode: gameState.gameMode,
+        gameSpeed: gameState.gameSpeed,
+        isActive: true
+      }
     };
   }
 
@@ -128,6 +179,9 @@ class GameController {
     // Limpiar la carta actual después de moverla
     this.gameService.currentCard = null;
     
+    // Obtener el estado actualizado para mantener modo y velocidad
+    const gameState = this.gameService.getCurrentGameState();
+    
     if (moveResult.isVictory) {
       // Juego ganado
       const message = this.messageService.getVictoryMessage();
@@ -135,8 +189,16 @@ class GameController {
         ...moveResult,
         message,
         currentCard: null,
-        boardStructure: this.boardService.generateBoardStructure(moveResult.groups)
+        gameMode: gameState.gameMode, // Mantener el modo
+        gameSpeed: gameState.gameSpeed, // Mantener la velocidad
+        boardStructure: this.boardService.generateBoardStructure(moveResult.groups),
+        configInfo: {
+          gameMode: gameState.gameMode,
+          gameSpeed: gameState.gameSpeed,
+          isActive: true
+        }
       };
+
     }
 
     // Movimiento exitoso, ahora debe revelar del grupo donde se colocó la carta
@@ -152,7 +214,14 @@ class GameController {
         boardStructure,
         nextAction: 'revealFromTarget',
         nextRevealGroup: targetGroup,
-        continueDelay: 1500
+        continueDelay: 1500,
+        gameMode: gameState.gameMode, // Mantener el modo
+        gameSpeed: gameState.gameSpeed, // Mantener la velocidad
+        configInfo: {
+          gameMode: gameState.gameMode,
+          gameSpeed: gameState.gameSpeed,
+          isActive: true
+        }
       };
     } else {
       // Si no hay cartas en el grupo de destino, el juego puede estar bloqueado
@@ -162,7 +231,14 @@ class GameController {
         currentCard: null,
         boardStructure,
         nextAction: 'waitForClick',
-        continueDelay: 1000
+        continueDelay: 1000,
+        gameMode: gameState.gameMode, // Mantener el modo
+        gameSpeed: gameState.gameSpeed, // Mantener la velocidad
+        configInfo: {
+          gameMode: gameState.gameMode,
+          gameSpeed: gameState.gameSpeed,
+          isActive: true
+        }
       };
     }
   }
@@ -176,7 +252,16 @@ class GameController {
   prepareNextTurn(targetGroup, gameMode) {
     const gameState = this.gameService.getCurrentGameState();
     
-    if (gameMode === 'automatic') {
+    // Asegurarse de que el modo de juego esté sincronizado
+    if (gameMode && gameMode !== gameState.gameMode) {
+      // Actualizar el modo de juego si es diferente
+      this.gameService.updateGameConfiguration({ gameMode: gameMode });
+    }
+    
+    // Usar el modo proporcionado o el actual del estado del juego
+    const currentMode = gameMode || gameState.gameMode;
+    
+    if (currentMode === 'automatic') {
       // En modo automático, elegir el mejor grupo para revelar
       const bestGroup = this.gameService.getBestGroupForAutoReveal();
       
@@ -195,6 +280,7 @@ class GameController {
         message: this.messageService.getMotivationalMessage(),
         nextAction: 'autoReveal',
         targetGroup: bestGroup,
+        gameMode: 'automatic', // Modo automático explícito
         boardStructure: this.boardService.generateBoardStructure(gameState.groups)
       };
     } else {
@@ -203,6 +289,7 @@ class GameController {
         message: this.messageService.getNextTurnMessage(targetGroup),
         nextAction: 'waitForClick',
         targetGroup,
+        gameMode: 'manual', // Modo manual explícito
         boardStructure: this.boardService.generateBoardStructure(gameState.groups)
       };
     }
@@ -216,42 +303,50 @@ class GameController {
   handleGroupClick(groupNumber) {
     const gameState = this.gameService.getCurrentGameState();
     
-    if (gameState.gameMode !== 'manual' || gameState.gameState !== 'playing') {
+    // Si no estamos en estado de juego, no procesar clics
+    if (gameState.gameState !== 'playing') {
       return {
         success: false,
-        message: 'Acción no permitida en el estado actual del juego'
+        message: 'Acción no permitida en el estado actual del juego',
+        gameMode: gameState.gameMode // Mantener el modo actual
       };
     }
-
-    // Si hay una carta revelada, solo permitir clic en el grupo correcto
-    if (gameState.currentCard) {
-      const targetGroup = gameState.currentCard.numericValue;
-      if (groupNumber !== targetGroup) {
-        return {
-          success: false,
-          message: `Debes colocar la carta ${gameState.currentCard.value}${gameState.currentCard.suit} en el grupo ${targetGroup}`,
-          currentCard: gameState.currentCard,
-          groups: gameState.groups,
-          gameState: gameState.gameState,
-          boardStructure: this.boardService.generateBoardStructure(gameState.groups)
-        };
+    
+    // Comprobar reglas específicas para modo manual
+    if (gameState.gameMode === 'manual') {
+      // Si hay una carta revelada, solo permitir clic en el grupo correcto
+      if (gameState.currentCard) {
+        const targetGroup = gameState.currentCard.numericValue;
+        if (groupNumber !== targetGroup) {
+          return {
+            success: false,
+            message: `Debes colocar la carta ${gameState.currentCard.value}${gameState.currentCard.suit} en el grupo ${targetGroup}`,
+            currentCard: gameState.currentCard,
+            groups: gameState.groups,
+            gameState: gameState.gameState,
+            gameMode: gameState.gameMode, // Mantener el modo actual
+            boardStructure: this.boardService.generateBoardStructure(gameState.groups)
+          };
+        }
+        
+        // Mover la carta al grupo correcto
+        return this.handleCardMovement(gameState.currentCard, targetGroup);
       }
-      
-      // Mover la carta al grupo correcto
-      return this.handleCardMovement(gameState.currentCard, targetGroup);
     }
-
-    // Verificar si el grupo puede ser clickeado
+    
+    // Verificar si el grupo puede ser clickeado (para ambos modos)
     if (!this.gameService.canClickGroup(groupNumber)) {
       return {
         success: false,
         message: 'Este grupo no tiene cartas para revelar',
         groups: gameState.groups,
         gameState: gameState.gameState,
+        gameMode: gameState.gameMode, // Mantener el modo actual
         boardStructure: this.boardService.generateBoardStructure(gameState.groups)
       };
     }
 
+    // Para ambos modos, revelar la carta
     return this.handleCardReveal(groupNumber);
   }
 
@@ -264,13 +359,25 @@ class GameController {
     this.isReturningPlayer = true;
     
     const resetResult = this.gameService.resetGameToInitialState();
-    const message = this.messageService.getWelcomeBackMessage();
+    
+    // Mensaje personalizado según el modo de juego
+    let message = this.messageService.getWelcomeBackMessage();
+    if (resetResult.gameMode === 'automatic') {
+      message += ` Se mantiene el modo automático según tus preferencias.`;
+    } else {
+      message += ` Modo manual activo.`;
+    }
     
     return {
       ...resetResult,
       message,
       showShuffleModal: this.showShuffleModal,
-      boardStructure: []
+      boardStructure: [],
+      configInfo: {
+        gameMode: resetResult.gameMode,
+        gameSpeed: resetResult.gameSpeed,
+        isActive: true
+      }
     };
   }
 
@@ -280,12 +387,27 @@ class GameController {
    * @returns {Object} Estado actualizado del juego
    */
   updateGameSettings(config) {
-    this.gameService.updateGameConfiguration(config);
+    // Actualizar la configuración del juego en el servicio
+    const updatedConfig = this.gameService.updateGameConfiguration(config);
     const gameState = this.gameService.getCurrentGameState();
+    
+    let configMessage = 'Configuración actualizada:';
+    
+    if (config.gameMode !== undefined) {
+      configMessage += ` Modo ${config.gameMode === 'automatic' ? 'Automático' : 'Manual'}`;
+    }
+    
+    if (config.gameSpeed !== undefined) {
+      const speedText = config.gameSpeed === 2000 ? 'Lento' : 
+                       (config.gameSpeed === 1000 ? 'Normal' : 'Rápido');
+      configMessage += ` | Velocidad ${speedText}`;
+    }
+    
+    configMessage += ` (guardado en preferencias)`;
     
     return {
       ...gameState,
-      message: `Configuración actualizada: Modo ${config.gameMode || gameState.gameMode}`,
+      message: configMessage,
       boardStructure: this.boardService.generateBoardStructure(gameState.groups)
     };
   }
@@ -299,12 +421,28 @@ class GameController {
     const boardStructure = this.boardService.generateBoardStructure(gameState.groups);
     const boardStats = this.boardService.getBoardStatistics(gameState.groups);
     
+    // Mensaje contextual basado en el estado y modo de juego
+    let contextMessage = this.messageService.getContextualMessage(gameState.gameState);
+    
+    if (gameState.gameState === 'playing') {
+      // Añadir indicador del modo actual al mensaje
+      const modeText = gameState.gameMode === 'automatic' 
+        ? '📱 Modo Automático activo' 
+        : '🖱️ Modo Manual activo';
+      contextMessage = `${contextMessage} (${modeText})`;
+    }
+    
     return {
       ...gameState,
       showShuffleModal: this.showShuffleModal,
       boardStructure,
       boardStats,
-      message: this.messageService.getContextualMessage(gameState.gameState)
+      message: contextMessage,
+      configInfo: {
+        gameMode: gameState.gameMode,
+        gameSpeed: gameState.gameSpeed,
+        isActive: true
+      }
     };
   }
 
@@ -355,18 +493,65 @@ class GameController {
     const hints = [];
     const stats = this.boardService.getBoardStatistics(gameState.groups);
     
+    // Encontrar el mejor grupo para revelar en modo automático
+    const bestTargetGroup = this.gameService.getBestGroupForAutoReveal();
+    
     if (stats.totalCards <= 10) {
       hints.push('¡Cuidado! Quedan pocas cartas, cada movimiento es crucial');
     }
     
     if (gameState.currentCard) {
       hints.push(`La carta actual (${gameState.currentCard.value}${gameState.currentCard.suit}) debe ir al grupo ${gameState.currentCard.numericValue}`);
+    } else if (bestTargetGroup) {
+      hints.push(`Te recomiendo revelar una carta del grupo ${bestTargetGroup} para optimizar tus posibilidades`);
+    }
+    
+    // Analizar la distribución actual de cartas
+    const groupDistribution = {};
+    Object.keys(gameState.groups).forEach(groupNum => {
+      const group = gameState.groups[groupNum];
+      groupDistribution[groupNum] = {
+        cards: group.cards.length,
+        revealed: group.revealed.length
+      };
+    });
+    
+    // Identificar grupos desbalanceados (muchas cartas reveladas vs. ocultas)
+    const unbalancedGroups = Object.entries(groupDistribution)
+      .filter(([_, data]) => data.revealed > 3 && data.cards < 2)
+      .map(([groupNum, _]) => parseInt(groupNum));
+    
+    if (unbalancedGroups.length > 0) {
+      hints.push(`Los grupos ${unbalancedGroups.join(', ')} están desbalanceados, intenta revelar de otros grupos`);
+    }
+    
+    // Analizar tendencias del juego
+    if (stats.completionPercentage > 70) {
+      hints.push('¡Estás cerca de completar el juego! Sé estratégico con tus últimos movimientos.');
     }
     
     return {
       hints,
       message: hints.length > 0 ? 'Sugerencias disponibles' : 'No hay sugerencias específicas',
-      stats
+      stats,
+      bestTargetGroup
+    };
+  }
+  
+  /**
+   * Obtiene análisis y consejos del genio para el modo automático
+   * @returns {Object} Consejos y estadísticas del modo automático
+   */
+  getAutomaticModeInsights() {
+    const gameState = this.gameService.getCurrentGameState();
+    const genieService = new OracleGenieService();
+    const advice = genieService.getAutomaticModeAdvice(gameState, gameState.gameHistory);
+    
+    return {
+      ...advice,
+      gameState: gameState.gameState,
+      gameMode: gameState.gameMode,
+      gameSpeed: gameState.gameSpeed
     };
   }
 }

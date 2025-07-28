@@ -12,17 +12,51 @@ const GameBoardViewImproved = ({
   onGroupClick, 
   gameState, 
   gameMode, 
-  boardStructure = [] 
+  boardStructure = []  
 }) => {
   const { theme } = useTheme();
 
   // Calcular estadísticas del juego
   const totalCards = Object.values(groups || {}).reduce((sum, group) => sum + group.cards.length, 0);
-  const totalRevealed = Object.values(groups || {}).reduce((sum, group) => sum + group.revealed.length, 0);
+  // const totalRevealed = Object.values(groups || {}).reduce((sum, group) => sum + group.revealed.length, 0);
   const progress = totalCards > 0 ? ((52 - totalCards) / 52 * 100).toFixed(1) : 0;
+
+  // Indicador de modo de juego
+  const getModeIndicator = () => {
+    if (gameMode === 'automatic') {
+      return {
+        icon: '🤖',
+        title: 'Modo Automático',
+        description: 'El juego se ejecuta automáticamente',
+        color: 'from-green-600 to-green-400',
+        border: 'border-green-400'
+      };
+    } else {
+      return {
+        icon: '🖱️',
+        title: 'Modo Manual',
+        description: 'Haz clic para revelar cartas',
+        color: 'from-blue-600 to-blue-400',
+        border: 'border-blue-400'
+      };
+    }
+  };
+
+  const modeInfo = getModeIndicator();
 
   return (
     <div className="w-full max-w-7xl mx-auto">
+      {/* Indicador persistente de modo flotante */}
+      <div className={`fixed top-4 right-4 z-30 
+                     bg-gradient-to-r ${modeInfo.color} 
+                     px-3 py-2 rounded-full shadow-lg 
+                     border ${modeInfo.border} 
+                     flex items-center gap-2
+                     animate-pulse-slow`}>
+        <span className="text-lg">{modeInfo.icon}</span>
+        <span className="font-bold text-white">{modeInfo.title}</span>
+      </div>
+
       {/* Header del juego con información clara */}
       <div className="mb-6">
         {/* Información principal */}
@@ -31,11 +65,11 @@ const GameBoardViewImproved = ({
             {/* Estado del juego */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🎮</span>
+                <span className="text-2xl">{modeInfo.icon}</span>
                 <div>
-                  <div className="text-white font-bold">Modo: {gameMode === 'manual' ? 'Manual' : 'Automático'}</div>
+                  <div className="text-white font-bold">{modeInfo.title}</div>
                   <div className="text-gray-300 text-sm">
-                    {gameMode === 'manual' ? 'Haz clic para revelar cartas' : 'El juego se ejecuta automáticamente'}
+                    {modeInfo.description}
                   </div>
                 </div>
               </div>

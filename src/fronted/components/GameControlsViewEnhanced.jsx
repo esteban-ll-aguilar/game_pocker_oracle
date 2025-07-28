@@ -42,7 +42,12 @@ const GameControlsViewEnhanced = ({
   // Manejar cambio de configuración
   const handleConfigChange = (key, value) => {
     onSettingsChange({ [key]: value });
-    showInfo(`${key === 'gameMode' ? 'Modo' : 'Velocidad'} actualizado`, 'Configuración');
+    const configType = key === 'gameMode' ? 'Modo' : 'Velocidad';
+    const configValue = key === 'gameMode' 
+      ? (value === 'automatic' ? 'Automático' : 'Manual')
+      : (value === 2000 ? 'Lento' : (value === 1000 ? 'Normal' : 'Rápido'));
+    
+    showInfo(`${configType} ${configValue} seleccionado y guardado en tus preferencias`, 'Configuración Guardada');
   };
 
   return (
@@ -179,7 +184,14 @@ const GameControlsViewEnhanced = ({
       <div className="flex justify-center">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-gray-400 hover:text-white transition-colors duration-200 text-sm flex items-center gap-2"
+          className={`
+            text-sm flex items-center gap-2 px-4 py-2 rounded-lg 
+            ${showAdvanced 
+              ? 'bg-purple-600 text-white' 
+              : 'bg-black/30 text-gray-300 hover:text-white hover:bg-black/50'
+            }
+            transition-all duration-200 border border-white/20
+          `}
         >
           <span>⚙️</span>
           <span>Configuración Avanzada</span>
@@ -194,7 +206,9 @@ const GameControlsViewEnhanced = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Modo de juego */}
             <div>
-              <label className="block text-white font-semibold mb-2">Modo de Juego</label>
+              <label className="block text-white font-semibold mb-2">
+                Modo de Juego: {gameMode === 'automatic' ? '🤖 Automático' : '🖱️ Manual'}
+              </label>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleConfigChange('gameMode', 'manual')}
@@ -225,7 +239,9 @@ const GameControlsViewEnhanced = ({
 
             {/* Velocidad del juego */}
             <div>
-              <label className="block text-white font-semibold mb-2">Velocidad</label>
+              <label className="block text-white font-semibold mb-2">
+                Velocidad: {gameSpeed === 2000 ? '🐌 Lenta' : (gameSpeed === 1000 ? '⚡ Normal' : '🚀 Rápida')}
+              </label>
               <div className="flex gap-2">
                 {[
                   { value: 2000, label: '🐌 Lento' },

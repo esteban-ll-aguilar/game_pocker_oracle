@@ -37,6 +37,7 @@ export const GameAPI = {
   getStatistics: () => gameController.getGameStatistics(),
   validateState: () => gameController.validateGameState(),
   getHints: () => gameController.getMovementHints(),
+  getAutomaticInsights: () => gameController.getAutomaticModeInsights(),
   
   // Flujo del juego
   prepareNextTurn: (targetGroup, gameMode) => gameController.prepareNextTurn(targetGroup, gameMode),

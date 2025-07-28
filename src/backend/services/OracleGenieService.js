@@ -122,6 +122,17 @@ class OracleGenieService {
       probability += 10;
       factors.push('Mucha información disponible (+10%)');
     }
+    
+    // Factor 6: Velocidad del juego (solo en modo automático)
+    if (gameState.gameMode === 'automatic' && gameState.gameSpeed) {
+      if (gameState.gameSpeed <= 500) {
+        probability -= 5;
+        factors.push('Velocidad alta (puede causar errores) (-5%)');
+      } else if (gameState.gameSpeed >= 2000) {
+        probability += 3;
+        factors.push('Velocidad prudente (+3%)');
+      }
+    }
 
     // Limitar probabilidad entre 5% y 95%
     probability = Math.max(5, Math.min(95, probability));
@@ -292,6 +303,69 @@ class OracleGenieService {
    */
   getRandomResponse(responses) {
     return responses[Math.floor(Math.random() * responses.length)];
+  }
+  
+  /**
+   * Proporciona consejos estratégicos específicos para el modo automático
+   * @param {Object} gameState - Estado actual del juego
+   * @param {Array} gameHistory - Historial de movimientos
+   * @returns {Object} Consejo estratégico
+   */
+  getAutomaticModeAdvice(gameState, gameHistory = []) {
+    // Analizar el estado actual
+    const totalCards = Object.values(gameState.groups).reduce(
+      (sum, group) => sum + group.cards.length + group.revealed.length, 0
+    );
+    
+    const revealedCards = Object.values(gameState.groups).reduce(
+      (sum, group) => sum + group.revealed.length, 0
+    );
+    
+    const completionPercentage = Math.round((revealedCards / totalCards) * 100);
+    
+    // Generar consejos basados en el estado
+    let advice = {
+      message: "Estoy monitoreando el progreso del juego en modo automático.",
+      actionRecommendation: null,
+      optimizationTip: null
+    };
+    
+    // Recomendaciones basadas en el progreso
+    if (completionPercentage < 30) {
+      advice.message = "El juego está en sus etapas iniciales. El modo automático está explorando diferentes grupos.";
+      advice.optimizationTip = "El modo automático funciona mejor con una velocidad intermedia en esta etapa.";
+    } else if (completionPercentage < 60) {
+      advice.message = "Progreso moderado. El algoritmo está equilibrando entre exploración y optimización.";
+      
+      // Verificar si hay muchos grupos con pocas cartas
+      const lowCardGroups = Object.values(gameState.groups).filter(
+        group => group.cards.length > 0 && group.cards.length < 3
+      ).length;
+      
+      if (lowCardGroups > 5) {
+        advice.actionRecommendation = "Hay varios grupos con pocas cartas. Considera aumentar la velocidad para más eficiencia.";
+      }
+    } else {
+      advice.message = "Etapa avanzada del juego. El algoritmo está optimizando estratégicamente los últimos movimientos.";
+      
+      // Verificar si hay un desbalance importante
+      const cardDistribution = Object.values(gameState.groups).map(group => 
+        group ? group.cards.length : 0
+      );
+      
+      const maxCards = Math.max(...cardDistribution);
+      if (maxCards > 5) {
+        advice.actionRecommendation = "Un grupo tiene muchas cartas acumuladas. El algoritmo intentará equilibrar el tablero.";
+      } else {
+        advice.optimizationTip = "La partida está bien balanceada. Mantén el modo automático para optimizar los movimientos finales.";
+      }
+    }
+    
+    // Incluir predicción de victoria
+    const { probability } = this.calculateWinProbability(gameState, gameHistory);
+    advice.winProbability = probability;
+    
+    return advice;
   }
 
   /**

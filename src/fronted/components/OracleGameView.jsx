@@ -46,6 +46,15 @@ const OracleGameView = () => {
       setIsLoading(true);
       const initialState = GameAPI.initialize();
       setGameState(initialState);
+      
+      // Mostrar información sobre modo de juego al iniciar
+      setTimeout(() => {
+        if (initialState.gameMode === 'automatic') {
+          showInfo('El juego está configurado en modo automático según tus preferencias guardadas', 'Preferencias Cargadas');
+        } else {
+          showInfo(`Preferencias cargadas: Modo ${initialState.gameMode === 'automatic' ? 'Automático' : 'Manual'}, Velocidad ${initialState.gameSpeed === 2000 ? 'Lenta' : (initialState.gameSpeed === 1000 ? 'Normal' : 'Rápida')}`, 'Bienvenido');
+        }
+      }, 1000);
     } catch (error) {
       console.error('Error al inicializar el juego:', error);
     } finally {
@@ -58,17 +67,43 @@ const OracleGameView = () => {
    */
   const handleStartGame = async () => {
     try {
+      // Guardar el modo actual antes de iniciar
+      const currentMode = gameState ? gameState.gameMode : null;
+      
       const newGameState = GameAPI.startGame();
+      
+      // Forzar el modo guardado si existe y es diferente
+      if (currentMode === 'automatic' && newGameState.gameMode !== 'automatic') {
+        console.log("Forzando modo automático guardado");
+        newGameState.gameMode = 'automatic';
+      }
+      
       setGameState(newGameState);
       
       // Iniciar seguimiento de estadísticas
       startGame();
-      showInfo('¡Nuevo juego iniciado! Que la suerte te acompañe.', 'Juego Iniciado');
+      
+      // Mensaje basado en el modo de juego (cargado de las preferencias)
+      const modeMessage = newGameState.gameMode === 'automatic' 
+        ? `¡Nuevo juego iniciado en modo automático! Velocidad: ${
+            newGameState.gameSpeed === 2000 ? 'Lenta' : 
+            (newGameState.gameSpeed === 1000 ? 'Normal' : 'Rápida')
+          }. Observa cómo la IA juega por ti.`
+        : '¡Nuevo juego iniciado! Que la suerte te acompañe.';
+        
+      showInfo(modeMessage, 'Juego Iniciado');
       
       // Simular el tiempo de barajado (reducido para modo automático)
       const shuffleTime = newGameState.gameMode === 'automatic' ? 4000 : 8000;
       setTimeout(() => {
         const readyState = GameAPI.finishShuffle();
+        
+        // Forzar el modo automático si estaba activo
+        if (newGameState.gameMode === 'automatic' && readyState.gameMode !== 'automatic') {
+          console.log("Forzando modo automático después del barajado");
+          readyState.gameMode = 'automatic';
+        }
+        
         setGameState(readyState);
         
         // El juego está listo, si está en modo automático iniciar automáticamente
@@ -77,6 +112,10 @@ const OracleGameView = () => {
             console.log("Iniciando juego automáticamente desde grupo central");
             // Comenzar el juego automáticamente revelando del grupo central (13)
             const clickResult = GameAPI.clickGroup(13);
+            
+            // Forzar el modo automático en el resultado
+            clickResult.gameMode = 'automatic';
+            
             if (clickResult.success) {
               handleGameStateUpdate(clickResult);
             } else {
@@ -104,8 +143,23 @@ const OracleGameView = () => {
    */
   const handleResetGame = async () => {
     try {
+      // Guardar el modo actual antes de reiniciar
+      const currentMode = gameState ? gameState.gameMode : null;
+      
       const resetState = GameAPI.resetGame();
+      
+      // Forzar el modo automático si estaba activo
+      if (currentMode === 'automatic' && resetState.gameMode !== 'automatic') {
+        console.log("Forzando modo automático durante el reinicio");
+        resetState.gameMode = 'automatic';
+      }
+      
       setGameState(resetState);
+      
+      // Mostrar información sobre el modo actual que se mantiene
+      if (resetState.gameMode === 'automatic') {
+        showInfo('Se mantiene el modo automático como prefieres', 'Juego Reiniciado');
+      }
     } catch (error) {
       console.error('Error al reiniciar el juego:', error);
     }
@@ -116,8 +170,17 @@ const OracleGameView = () => {
    */
   const handleGroupClick = async (groupNumber) => {
     try {
-      console.log("Clic en grupo:", groupNumber);
+      // Guardar el modo actual para preservarlo
+      const currentMode = gameState ? gameState.gameMode : null;
+      
+      console.log("Clic en grupo:", groupNumber, "Modo actual:", currentMode);
       const clickResult = GameAPI.clickGroup(groupNumber);
+      
+      // Asegurar que se mantiene el modo automático si estaba activo
+      if (currentMode === 'automatic' && clickResult.gameMode !== 'automatic') {
+        console.log("Forzando modo automático después del clic");
+        clickResult.gameMode = 'automatic';
+      }
       
       if (clickResult.success) {
         console.log("Clic exitoso en grupo:", groupNumber);
@@ -128,12 +191,14 @@ const OracleGameView = () => {
         if (clickResult.groups && clickResult.gameState) {
           setGameState(prevState => ({
             ...prevState,
-            ...clickResult
+            ...clickResult,
+            // Mantener el modo actual
+            gameMode: currentMode || prevState.gameMode
           }));
         }
         
         // Si estamos en modo automático y el clic no es válido, intentar con otro grupo
-        if (gameState && gameState.gameMode === 'automatic') {
+        if (currentMode === 'automatic') {
           console.log("Clic no válido en modo automático, buscando otro grupo");
           setTimeout(() => {
             // Buscar otro grupo con cartas disponibles
@@ -177,6 +242,32 @@ const OracleGameView = () => {
    */
   const handleGameStateUpdate = (newState) => {
     console.log("Actualización de estado:", newState.nextAction, "Modo:", newState.gameMode);
+    
+    // Verificar si el modo de juego debe actualizarse desde localStorage
+    // Solo hacerlo si no viene explícitamente en el estado nuevo
+    if (!newState.gameMode && localStorage.getItem('gameMode')) {
+      console.log("Aplicando modo desde localStorage:", localStorage.getItem('gameMode'));
+      newState.gameMode = localStorage.getItem('gameMode');
+    }
+    
+    // Verificar y aplicar la información de configuración
+    if (gameState && gameState.configInfo && !newState.configInfo) {
+      console.log("Aplicando información de configuración existente");
+      newState.configInfo = {
+        ...(gameState.configInfo || {}),
+        gameMode: newState.gameMode || (gameState ? gameState.gameMode : 'manual'),
+        isActive: true
+      };
+    } else if (!newState.configInfo) {
+      // Crear información de configuración si no existe
+      newState.configInfo = {
+        gameMode: newState.gameMode || (gameState ? gameState.gameMode : 'manual'),
+        gameSpeed: newState.gameSpeed || (gameState ? gameState.gameSpeed : 1000),
+        isActive: true
+      };
+    }
+    
+    // Actualizar el estado completo
     setGameState(newState);
     
     // Mostrar modal de revelación si hay una carta revelada (solo una vez por carta)
@@ -233,11 +324,15 @@ const OracleGameView = () => {
       if (newState.gameMode === 'automatic') {
         // Si hay un modal de revelación abierto, cerrarlo automáticamente
         if (showCardReveal) {
+          const modalCloseTime = newState.gameSpeed ? Math.min(1000, newState.gameSpeed * 0.8) : 1000;
           setTimeout(() => {
             setShowCardReveal(false);
             setRevealedCardInfo(null);
-          }, 1000);
+          }, modalCloseTime);
         }
+        
+        // Calcular tiempo de espera adaptativo según velocidad del juego
+        const moveDelayTime = calculateAdaptiveDelay(newState.gameSpeed, showCardReveal);
         
         setTimeout(() => {
           const moveResult = GameAPI.moveCard(
@@ -245,11 +340,14 @@ const OracleGameView = () => {
             newState.targetGroup || newState.currentCard.numericValue
           );
           handleGameStateUpdate(moveResult);
-        }, showCardReveal ? 1200 : 800); // Ajuste del tiempo basado en si hay modal visible
+        }, moveDelayTime);
       }
       // En modo manual, NO mover automáticamente - esperar clic del usuario
     } else if (newState.nextAction === 'waitForNextTurn') {
-      const delayTime = newState.gameMode === 'automatic' ? 700 : (newState.continueDelay || 1000);
+      const delayTime = newState.gameMode === 'automatic' 
+        ? calculateAdaptiveDelay(newState.gameSpeed) 
+        : (newState.continueDelay || 1000);
+        
       setTimeout(() => {
         const nextTurnState = GameAPI.prepareNextTurn(
           newState.targetGroup, 
@@ -259,16 +357,28 @@ const OracleGameView = () => {
       }, delayTime);
     } else if (newState.nextAction === 'autoReveal') {
       // En modo automático, continuar automáticamente
+      const revealDelay = calculateAdaptiveDelay(newState.gameSpeed);
       setTimeout(() => {
         const autoRevealResult = GameAPI.revealCard(newState.targetGroup);
         handleGameStateUpdate(autoRevealResult);
-      }, 800); // Tiempo más corto para modo automático
+      }, revealDelay);
     } else if (newState.nextAction === 'waitForClick' && newState.gameMode === 'automatic') {
       // Si está en modo automático pero esperando clic, continuar automáticamente
+      
+      // Calcular tiempo de espera basado en la velocidad del juego
+      const waitTime = (newState.gameSpeed || 1000) * 0.8;
+      
       setTimeout(() => {
-        // Usar el targetGroup sugerido por el backend o buscar uno disponible
-        let targetGroup = newState.targetGroup;
+        // Verificar si el juego sigue activo
+        if (newState.gameState !== 'playing') {
+          return;
+        }
         
+        // Usar la lógica del backend para encontrar el mejor grupo para revelar
+        const bestTargetGroup = GameAPI.getHints().bestTargetGroup;
+        let targetGroup = bestTargetGroup || newState.targetGroup;
+        
+        // Si no se encontró un grupo objetivo, realizar una búsqueda más exhaustiva
         if (!targetGroup) {
           // Buscar un grupo con cartas para revelar
           const availableGroups = Object.keys(newState.groups || {}).filter(groupNum => {
@@ -277,28 +387,92 @@ const OracleGameView = () => {
           });
           
           if (availableGroups.length > 0) {
-            // Preferir grupos con más cartas para maximizar opciones
-            const sortedGroups = availableGroups.sort((a, b) => {
-              return newState.groups[b].cards.length - newState.groups[a].cards.length;
+            // Aplicar heurística avanzada
+            const groupScores = availableGroups.map(groupNum => {
+              const group = newState.groups[groupNum];
+              const numericGroupNum = parseInt(groupNum);
+              
+              // Puntuación base: número de cartas
+              let score = group.cards.length * 10;
+              
+              // Factor 1: Preferir grupos con distribución más uniforme
+              const revealedRatio = group.revealed.length > 0 ? 
+                group.cards.length / group.revealed.length : group.cards.length * 2;
+              score += revealedRatio * 5;
+              
+              // Factor 2: Evitar grupos con muchas cartas repetidas
+              const valueDistribution = {};
+              group.revealed.forEach(card => {
+                if (card.numericValue) {
+                  valueDistribution[card.numericValue] = 
+                    (valueDistribution[card.numericValue] || 0) + 1;
+                }
+              });
+              
+              const maxDuplicates = Object.values(valueDistribution).reduce(
+                (max, count) => Math.max(max, count), 0);
+              if (maxDuplicates > 2) {
+                score -= maxDuplicates * 5;
+              }
+              
+              // Factor 3: Aleatoriedad controlada para evitar bloqueos
+              score += (Math.random() * 10) - 5;
+              
+              return { groupNum: numericGroupNum, score };
             });
-            targetGroup = parseInt(sortedGroups[0]);
+            
+            // Ordenar por puntuación
+            groupScores.sort((a, b) => b.score - a.score);
+            console.log("Puntuaciones de grupos (fallback):", 
+              groupScores.map(g => `Grupo ${g.groupNum}: ${g.score.toFixed(1)}`).join(', '));
+            
+            targetGroup = groupScores[0].groupNum;
           }
         }
         
         if (targetGroup) {
           console.log("Revelando automáticamente del grupo:", targetGroup);
           const autoRevealResult = GameAPI.revealCard(targetGroup);
+          
+          // Verificar si la revelación fue exitosa
+          if (autoRevealResult.success === false) {
+            console.log("Revelación automática fallida, buscando alternativa...");
+            
+            // Intentar con otro grupo si el primero falló
+            const availableGroups = Object.keys(newState.groups || {})
+              .filter(gNum => parseInt(gNum) !== targetGroup) // Excluir el grupo que falló
+              .filter(gNum => {
+                const group = newState.groups[gNum];
+                return group && group.cards && group.cards.length > 0;
+              });
+            
+            if (availableGroups.length > 0) {
+              const alternativeGroup = parseInt(availableGroups[0]);
+              console.log("Intentando grupo alternativo:", alternativeGroup);
+              setTimeout(() => {
+                const secondAttempt = GameAPI.revealCard(alternativeGroup);
+                handleGameStateUpdate(secondAttempt);
+              }, 300);
+              return;
+            }
+          }
+          
+          // Procesar el resultado de la revelación
           handleGameStateUpdate(autoRevealResult);
         } else {
-          // Si no hay grupos disponibles, intentar verificar si el juego ha terminado
+          // Si no hay grupos disponibles, verificar si el juego ha terminado
           console.log("No hay grupos disponibles para revelar, finalizando juego");
+          showInfo("No quedan movimientos posibles. El juego ha terminado.", "Fin del juego");
           const updatedState = {...newState, nextAction: 'gameEnd'};
           handleGameStateUpdate(updatedState);
         }
-      }, 800); // Tiempo más corto para flujo continuo
+      }, waitTime);
     } else if (newState.nextAction === 'revealFromTarget') {
       // Debe revelar automáticamente del grupo donde se colocó la carta
-      const delayTime = newState.gameMode === 'automatic' ? 800 : (newState.continueDelay || 1500);
+      const delayTime = newState.gameMode === 'automatic' 
+        ? calculateAdaptiveDelay(newState.gameSpeed) 
+        : (newState.continueDelay || 1500);
+        
       setTimeout(() => {
         console.log("Revelando del grupo target:", newState.nextRevealGroup);
         const revealResult = GameAPI.revealCard(newState.nextRevealGroup);
@@ -324,9 +498,59 @@ const OracleGameView = () => {
    */
   const handleSettingsUpdate = (newSettings) => {
     try {
+      console.log("Actualizando configuración:", newSettings);
+      
+      // Guardar el modo localmente para garantizar que se aplica correctamente
+      if (newSettings.gameMode) {
+        localStorage.setItem('gameMode', newSettings.gameMode);
+      }
+      
+      // Llamar al API para actualizar la configuración
       const updatedState = GameAPI.updateSettings(newSettings);
+      
+      // Actualizar el estado local con un manejo mejorado para preservar el modo
       setGameState(prevState => {
-        const combinedState = { ...prevState, ...updatedState };
+        // Asegurarse de que el modo se actualiza correctamente
+        const combinedState = { 
+          ...prevState, 
+          ...updatedState,
+          gameMode: newSettings.gameMode || prevState.gameMode,
+          gameSpeed: newSettings.gameSpeed || prevState.gameSpeed,
+          configInfo: {
+            ...(prevState.configInfo || {}),
+            gameMode: newSettings.gameMode || prevState.gameMode,
+            gameSpeed: newSettings.gameSpeed || prevState.gameSpeed,
+            isActive: true
+          }
+        };
+        
+        // Mostrar mensaje informativo cuando cambiamos el modo de juego
+        if (newSettings.gameMode && newSettings.gameMode !== prevState.gameMode) {
+          const modeText = newSettings.gameMode === 'automatic' ? 'Automático' : 'Manual';
+          const modeEmoji = newSettings.gameMode === 'automatic' ? '🤖' : '🖱️';
+          const modeMessage = `${modeEmoji} Modo ${modeText} activado y guardado en tus preferencias. Se mantendrá en futuros juegos hasta que lo cambies.`;
+          
+          showInfo(modeMessage, 'Configuración Guardada', 5000);
+          
+          // Forzar un refresco de la UI con un pequeño delay para asegurar que el cambio se refleja
+          setTimeout(() => {
+            const refreshState = GameAPI.getCurrentState();
+            setGameState(prev => ({ 
+              ...prev, 
+              ...refreshState,
+              gameMode: newSettings.gameMode // Forzar explícitamente el nuevo modo
+            }));
+          }, 200);
+        }
+        
+        // Si cambiamos la velocidad, mostrar mensaje
+        if (newSettings.gameSpeed && newSettings.gameSpeed !== prevState.gameSpeed) {
+          const speedText = 
+            newSettings.gameSpeed === 2000 ? 'Lenta' :
+            newSettings.gameSpeed === 1000 ? 'Normal' : 'Rápida';
+          
+          showInfo(`⚡ Velocidad ${speedText} configurada y guardada en tus preferencias.`, 'Configuración Guardada');
+        }
         
         // Si cambiamos a modo automático y estamos en estado de juego, continuar automáticamente
         if (newSettings.gameMode === 'automatic' && 
@@ -334,19 +558,54 @@ const OracleGameView = () => {
             combinedState.nextAction === 'waitForClick') {
           setTimeout(() => {
             console.log("Continuando automáticamente después de cambiar a modo automático");
+            // Forzar el modo automático explícitamente
+            const currentState = GameAPI.getCurrentState();
             handleGameStateUpdate({
-              ...combinedState,
+              ...currentState,
               nextAction: 'waitForClick',
               gameMode: 'automatic'
             });
-          }, 500);
+          }, 800); // Dar tiempo para que el usuario vea el mensaje
         }
         
         return combinedState;
       });
     } catch (error) {
       console.error('Error al actualizar configuración:', error);
+      showError('No se pudo actualizar la configuración');
     }
+  };
+  
+  /**
+   * Calcula un tiempo de espera adaptativo basado en la velocidad del juego
+   * @param {number} gameSpeed - Velocidad del juego (ms)
+   * @param {boolean} hasModal - Si hay un modal activo que requiere tiempo adicional
+   * @returns {number} Tiempo de espera ajustado
+   */
+  const calculateAdaptiveDelay = (gameSpeed, hasModal = false) => {
+    // Valores por defecto si no hay velocidad especificada
+    if (!gameSpeed) {
+      return hasModal ? 1200 : 800;
+    }
+    
+    // Factor de ajuste para diferentes velocidades
+    let factor;
+    if (gameSpeed <= 500) {
+      // Velocidad rápida
+      factor = 0.6;
+    } else if (gameSpeed <= 1000) {
+      // Velocidad normal
+      factor = 0.75;
+    } else {
+      // Velocidad lenta
+      factor = 0.85;
+    }
+    
+    // Añadir tiempo extra si hay un modal activo
+    const modalFactor = hasModal ? 1.5 : 1;
+    
+    // Calcular y devolver el tiempo adaptado
+    return Math.round(gameSpeed * factor * modalFactor);
   };
 
   /**
@@ -395,28 +654,41 @@ const OracleGameView = () => {
         if (hasAvailableGroups && gameState.nextAction !== 'gameEnd') {
           console.log("Detectado posible bloqueo, continuando flujo...");
           
+          // Forzar actualización del estado con el modo automático activado
+          const refreshedState = GameAPI.getCurrentState();
+          setGameState(prev => ({ 
+            ...prev, 
+            ...refreshedState,
+            gameMode: 'automatic' 
+          }));
+          
           // Intentar continuar el flujo automático
-          if (gameState.nextAction === 'waitForClick') {
-            // Buscar un grupo disponible
-            const availableGroups = Object.keys(gameState.groups || {}).filter(gNum => {
-              const group = gameState.groups[gNum];
-              return group && group.cards && group.cards.length > 0;
-            });
-            
-            if (availableGroups.length > 0) {
-              const targetGroup = parseInt(availableGroups[0]);
-              console.log("Desbloqueando con clic en grupo:", targetGroup);
-              handleGroupClick(targetGroup);
+          setTimeout(() => {
+            if (gameState.nextAction === 'waitForClick') {
+              // Buscar un grupo disponible
+              const availableGroups = Object.keys(gameState.groups || {}).filter(gNum => {
+                const group = gameState.groups[gNum];
+                return group && group.cards && group.cards.length > 0;
+              });
+              
+              if (availableGroups.length > 0) {
+                const targetGroup = parseInt(availableGroups[0]);
+                console.log("Desbloqueando con clic en grupo:", targetGroup);
+                handleGroupClick(targetGroup);
+              }
+            } else if (gameState.currentCard && gameState.nextAction === 'moveCard') {
+              // Mover la carta actual
+              console.log("Desbloqueando con movimiento de carta");
+              const moveResult = GameAPI.moveCard(
+                gameState.currentCard, 
+                gameState.targetGroup || gameState.currentCard.numericValue
+              );
+              handleGameStateUpdate({
+                ...moveResult,
+                gameMode: 'automatic'
+              });
             }
-          } else if (gameState.currentCard && gameState.nextAction === 'moveCard') {
-            // Mover la carta actual
-            console.log("Desbloqueando con movimiento de carta");
-            const moveResult = GameAPI.moveCard(
-              gameState.currentCard, 
-              gameState.targetGroup || gameState.currentCard.numericValue
-            );
-            handleGameStateUpdate(moveResult);
-          }
+          }, 300);
         }
       }, 10000);
     }
