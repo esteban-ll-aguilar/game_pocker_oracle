@@ -216,9 +216,10 @@ const GenieChat = ({ isOpen, onClose, gameState, gameHistory, onApplyRecommendat
         rounded-2xl border-2 ${theme.border} shadow-2xl 
         w-full max-w-2xl max-h-[80vh] overflow-hidden
         transform transition-all duration-300
+        flex flex-col
       `}>
-        {/* Header */}
-        <div className={`bg-gradient-to-r ${theme.secondary} p-4 border-b border-white/20`}>
+        {/* Header - Sticky */}
+        <div className={`bg-gradient-to-r ${theme.secondary} p-4 border-b border-white/20 sticky top-0 z-10 rounded-t-2xl`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="text-3xl animate-float">🧞‍♂️</div>
@@ -229,7 +230,8 @@ const GenieChat = ({ isOpen, onClose, gameState, gameHistory, onApplyRecommendat
             </div>
             <button
               onClick={onClose}
-              className="text-white/70 hover:text-white transition-colors duration-200 text-2xl hover-lift"
+              className="text-white hover:text-red-400 transition-colors duration-200 text-2xl hover-lift flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20"
+              title="Cerrar chat"
             >
               ✕
             </button>
@@ -237,7 +239,7 @@ const GenieChat = ({ isOpen, onClose, gameState, gameHistory, onApplyRecommendat
         </div>
 
         {/* Mensajes */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-96">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.map((message) => (
             <div
               key={message.id}
