@@ -105,7 +105,7 @@
        // Fase 1: División con anti-colisión mejorada
        leftHalf.forEach((card, i) => {
          const targetX = -220 - i * 12;
-         const targetY = -40 - i * 6;
+         const targetY = -30 - i * 4; // Reducido para menor altura
          const safePos = findSafePosition(targetX, targetY, newPositions, i);
          newPositions.set(i, safePos);
          
@@ -117,7 +117,7 @@
  
        rightHalf.forEach((card, i) => {
          const targetX = 220 + i * 12;
-         const targetY = -40 - i * 6;
+         const targetY = -30 - i * 4; // Reducido para menor altura
          const safePos = findSafePosition(targetX, targetY, newPositions, middle + i);
          newPositions.set(middle + i, safePos);
          
@@ -136,8 +136,8 @@
          // Fase 2: Arco cinematográfico con anti-colisión
          leftHalf.forEach((card, i) => {
            const targetX = -100 - i * 8;
-           const arcHeight = 140 + i * 18;
-           const targetY = -arcHeight - Math.sin(i * 0.3) * 12;
+           const arcHeight = 80 + i * 12; // Reducido para menor altura
+           const targetY = -arcHeight - Math.sin(i * 0.3) * 8; // Ajustado para arco más bajo
            const safePos = findSafePosition(targetX, targetY, arcPositions, i);
            arcPositions.set(i, safePos);
            
@@ -149,8 +149,8 @@
  
          rightHalf.forEach((card, i) => {
            const targetX = 100 + i * 8;
-           const arcHeight = 140 + i * 18;
-           const targetY = -arcHeight - Math.sin(i * 0.3) * 12;
+           const arcHeight = 80 + i * 12; // Reducido para menor altura
+           const targetY = -arcHeight - Math.sin(i * 0.3) * 8; // Ajustado para arco más bajo
            const safePos = findSafePosition(targetX, targetY, arcPositions, middle + i);
            arcPositions.set(middle + i, safePos);
            
@@ -190,7 +190,7 @@
                
                // Calcular posición objetivo con anti-colisión
                const baseX = (i - shuffledOrder.length / 2) * 8;
-               const baseY = 80 + Math.sin(i * 0.4) * 20 + burst * 12;
+               const baseY = 50 + Math.sin(i * 0.4) * 15 + burst * 8; // Reducido para menor altura
                const safePos = findSafePosition(baseX, baseY, rifflePosistions, i);
                rifflePosistions.set(i, safePos);
                
@@ -216,11 +216,11 @@
                const { card } = item;
                setTimeout(() => {
                  card.style.transition = 'transform 1.5s cubic-bezier(0.23, 1, 0.32, 1), filter 1.5s ease-out';
-                 const waveX = Math.sin(i * 0.4) * 20;
-                 const waveY = Math.cos(i * 0.3) * 15;
-                 const collapseX = i * 4 + waveX;
-                 const collapseY = 30 - (i * 1.2) + waveY;
-                 const tiltWave = Math.sin(i * 0.25) * 15;
+                 const waveX = Math.sin(i * 0.4) * 15; // Reducido para menor movimiento lateral
+                 const waveY = Math.cos(i * 0.3) * 10; // Reducido para menor movimiento vertical
+                 const collapseX = i * 3 + waveX; // Ajustado para menor dispersión
+                 const collapseY = 20 - (i * 0.8) + waveY; // Reducido para menor altura
+                 const tiltWave = Math.sin(i * 0.25) * 12;
                  
                  card.style.transform = `translateX(${collapseX}px) translateY(${collapseY}px) translateZ(${i * 2}px) rotateX(${tiltWave}deg) rotateY(${Math.sin(i * 0.4) * 5}deg) rotateZ(${Math.sin(i * 0.5) * 8}deg) scale(${1.01 + Math.sin(i * 0.2) * 0.03})`;
                  card.style.zIndex = 400 + i;
@@ -272,7 +272,7 @@
    }, [isAnimating, findSafePosition, generateParticles]);
  
    useEffect(() => {
-    //  cinematicRiffleShuffle(); 
+     cinematicRiffleShuffle(); 
    }, []);
  
    return (
@@ -296,7 +296,7 @@
  
        {/* Contenedor principal con efectos de iluminación */}
        <div 
-         className="relative w-[1000px] h-[700px] mb-8 rounded-3xl backdrop-blur-sm bg-gradient-to-br from-green-900/20 to-black/20 border border-yellow-400/20"
+         className="relative w-[1000px] h-[500px] mb-8 rounded-3xl backdrop-blur-sm bg-gradient-to-br from-green-900/20 to-black/20 border border-yellow-400/20"
          style={{ 
            perspective: '1500px',
            transformStyle: 'preserve-3d',
