@@ -139,18 +139,32 @@ class GameController {
       };
     }
 
-    // Movimiento exitoso, continuar juego
+    // Movimiento exitoso, ahora debe revelar del grupo donde se colocó la carta
     const placedMessage = this.messageService.getCardPlacedMessage(targetGroup);
     const boardStructure = this.boardService.generateBoardStructure(moveResult.groups);
     
-    return {
-      ...moveResult,
-      message: placedMessage,
-      currentCard: null, // Limpiar carta actual
-      boardStructure,
-      nextAction: 'waitForNextTurn',
-      continueDelay: 1000
-    };
+    // Verificar si el grupo de destino tiene cartas para revelar
+    if (moveResult.groups[targetGroup] && moveResult.groups[targetGroup].cards.length > 0) {
+      return {
+        ...moveResult,
+        message: `${placedMessage} Ahora revela una carta del grupo ${targetGroup}.`,
+        currentCard: null,
+        boardStructure,
+        nextAction: 'revealFromTarget',
+        nextRevealGroup: targetGroup,
+        continueDelay: 1500
+      };
+    } else {
+      // Si no hay cartas en el grupo de destino, el juego puede estar bloqueado
+      return {
+        ...moveResult,
+        message: `${placedMessage} El grupo ${targetGroup} está vacío. Elige otro grupo para continuar.`,
+        currentCard: null,
+        boardStructure,
+        nextAction: 'waitForClick',
+        continueDelay: 1000
+      };
+    }
   }
 
   /**
@@ -163,11 +177,24 @@ class GameController {
     const gameState = this.gameService.getCurrentGameState();
     
     if (gameMode === 'automatic') {
+      // En modo automático, elegir el mejor grupo para revelar
+      const bestGroup = this.gameService.getBestGroupForAutoReveal();
+      
+      if (bestGroup === null) {
+        // No hay más grupos disponibles
+        return {
+          ...gameState,
+          message: 'No hay más cartas para revelar',
+          nextAction: 'gameEnd',
+          boardStructure: this.boardService.generateBoardStructure(gameState.groups)
+        };
+      }
+      
       return {
         ...gameState,
         message: this.messageService.getMotivationalMessage(),
         nextAction: 'autoReveal',
-        targetGroup,
+        targetGroup: bestGroup,
         boardStructure: this.boardService.generateBoardStructure(gameState.groups)
       };
     } else {
@@ -203,8 +230,10 @@ class GameController {
         return {
           success: false,
           message: `Debes colocar la carta ${gameState.currentCard.value}${gameState.currentCard.suit} en el grupo ${targetGroup}`,
-          isBlocked: true,
-          allowedGroup: targetGroup
+          currentCard: gameState.currentCard,
+          groups: gameState.groups,
+          gameState: gameState.gameState,
+          boardStructure: this.boardService.generateBoardStructure(gameState.groups)
         };
       }
       
@@ -212,10 +241,14 @@ class GameController {
       return this.handleCardMovement(gameState.currentCard, targetGroup);
     }
 
+    // Verificar si el grupo puede ser clickeado
     if (!this.gameService.canClickGroup(groupNumber)) {
       return {
         success: false,
-        message: 'Este grupo no puede ser clickeado'
+        message: 'Este grupo no tiene cartas para revelar',
+        groups: gameState.groups,
+        gameState: gameState.gameState,
+        boardStructure: this.boardService.generateBoardStructure(gameState.groups)
       };
     }
 

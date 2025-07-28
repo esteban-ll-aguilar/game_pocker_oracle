@@ -169,7 +169,8 @@ class GameService {
       return {
         success: false,
         gameState: this.gameState,
-        message: '¡Oh no! El destino se ha bloqueado. No hay más cartas en este grupo para revelar. Has perdido...'
+        message: '¡Oh no! El destino se ha bloqueado. No hay más cartas en este grupo para revelar. Has perdido...',
+        groups: this.groups
       };
     }
 
@@ -197,16 +198,18 @@ class GameService {
     const targetGroup = cardToReveal.numericValue;
     
     // Verificar si la carta pertenece al mismo grupo (regla de pérdida)
-    if (targetGroup === groupNumber && this.groups[groupNumber].cards.length === 0) {
-      this.gameState = 'lost';
-      return {
-        success: false,
-        gameState: this.gameState,
-        currentCard: cardToReveal,
-        groups: this.groups,
-        message: `¡El oráculo ha hablado! La carta ${cardToReveal.value}${cardToReveal.suit} pertenece al mismo grupo y no quedan más movimientos. Has perdido...`,
-        isBlocked: true
-      };
+    if (targetGroup === groupNumber) {
+      // Solo perder si no hay más cartas en el grupo de destino para colocar esta carta
+      if (this.groups[targetGroup].cards.length === 0) {
+        this.gameState = 'lost';
+        return {
+          success: false,
+          gameState: this.gameState,
+          currentCard: cardToReveal,
+          groups: this.groups,
+          message: `¡El oráculo ha hablado! La carta ${cardToReveal.value}${cardToReveal.suit} pertenece al mismo grupo ${targetGroup} y no hay espacio. Has perdido...`
+        };
+      }
     }
 
     return {
@@ -215,9 +218,7 @@ class GameService {
       currentCard: cardToReveal,
       groups: this.groups,
       targetGroup,
-      message: `¡Una ${cardToReveal.value}${cardToReveal.suit} ha sido revelada! Debe ir al grupo ${targetGroup}...`,
-      isBlocked: true, // Bloquear otros grupos hasta que se mueva esta carta
-      allowedGroup: targetGroup // Solo este grupo puede ser clickeado
+      message: `¡Una ${cardToReveal.value}${cardToReveal.suit} ha sido revelada! Debe ir al grupo ${targetGroup}...`
     };
   }
 
@@ -312,6 +313,49 @@ class GameService {
   updateGameConfiguration(config) {
     if (config.gameMode) this.gameMode = config.gameMode;
     if (config.gameSpeed) this.gameSpeed = config.gameSpeed;
+  }
+
+  /**
+   * Obtiene el mejor grupo para revelar en modo automático
+   * @returns {number|null} Número del grupo recomendado o null si no hay opciones
+   */
+  getBestGroupForAutoReveal() {
+    // Buscar grupos con cartas disponibles
+    const availableGroups = Object.keys(this.groups).filter(groupNum => {
+      const group = this.groups[groupNum];
+      return group && group.cards.length > 0;
+    }).map(num => parseInt(num));
+
+    if (availableGroups.length === 0) return null;
+
+    // Estrategia: priorizar grupos con más cartas para maximizar opciones
+    const groupsByCardCount = availableGroups.map(groupNum => ({
+      groupNum,
+      cardCount: this.groups[groupNum].cards.length,
+      revealedCount: this.groups[groupNum].revealed.length
+    })).sort((a, b) => {
+      // Priorizar grupos con más cartas ocultas
+      if (b.cardCount !== a.cardCount) {
+        return b.cardCount - a.cardCount;
+      }
+      // Si tienen las mismas cartas, priorizar los que tienen menos reveladas
+      return a.revealedCount - b.revealedCount;
+    });
+
+    return groupsByCardCount[0].groupNum;
+  }
+
+  /**
+   * Verifica si el juego puede continuar
+   * @returns {boolean} True si hay movimientos posibles
+   */
+  canContinueGame() {
+    // Verificar si hay cartas para revelar
+    const hasCardsToReveal = Object.values(this.groups).some(group => 
+      group && group.cards.length > 0
+    );
+
+    return hasCardsToReveal && this.gameState === 'playing';
   }
 }
 

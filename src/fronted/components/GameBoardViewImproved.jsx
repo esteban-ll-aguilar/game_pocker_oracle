@@ -109,7 +109,7 @@ const GameBoardViewImproved = ({
 
         {/* Layout del tablero en cuadrícula 4x4 */}
         <div className="relative">
-          <div className="grid grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8 w-full max-w-3xl md:max-w-4xl lg:max-w-5xl mx-auto">
+          <div className="grid grid-cols-4 gap-4 sm:gap-6 md:gap-8 lg:gap-10 w-full max-w-4xl md:max-w-5xl lg:max-w-6xl mx-auto">
             {/* Fila 1 */}
             <div className="aspect-[3/4]">
               {groups[1] && (
@@ -117,11 +117,12 @@ const GameBoardViewImproved = ({
                   groupNumber={1}
                   group={groups[1]}
                   onClick={() => onGroupClick(1)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={false}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}
                   allowedGroup={currentCard ? currentCard.numericValue : null}
+                  allGroups={groups}
                 />
               )}
             </div>
@@ -131,11 +132,12 @@ const GameBoardViewImproved = ({
                   groupNumber={2}
                   group={groups[2]}
                   onClick={() => onGroupClick(2)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={false}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}
                   allowedGroup={currentCard ? currentCard.numericValue : null}
+                  allGroups={groups}
                 />
               )}
             </div>
@@ -145,13 +147,15 @@ const GameBoardViewImproved = ({
                   groupNumber={3}
                   group={groups[3]}
                   onClick={() => onGroupClick(3)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={false}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}
                   allowedGroup={currentCard ? currentCard.numericValue : null}
+                  allGroups={groups}
                 />
               )}
+              
             </div>
             <div className="aspect-[3/4]">
               {groups[4] && (
@@ -159,7 +163,7 @@ const GameBoardViewImproved = ({
                   groupNumber={4}
                   group={groups[4]}
                   onClick={() => onGroupClick(4)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={false}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}
@@ -175,7 +179,7 @@ const GameBoardViewImproved = ({
                   groupNumber={12}
                   group={groups[12]}
                   onClick={() => onGroupClick(12)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={false}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}
@@ -190,7 +194,7 @@ const GameBoardViewImproved = ({
                   groupNumber={13}
                   group={groups[13]}
                   onClick={() => onGroupClick(13)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={true}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}
@@ -204,7 +208,7 @@ const GameBoardViewImproved = ({
                   groupNumber={5}
                   group={groups[5]}
                   onClick={() => onGroupClick(5)}
-                  isClickable={gameMode === 'manual' && gameState === 'playing'}
+                  isClickable={(gameMode || 'manual') === 'manual' && gameState === 'playing'}
                   isCenter={false}
                   currentCard={currentCard}
                   isBlocked={currentCard !== null}

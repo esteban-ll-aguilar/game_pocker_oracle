@@ -65,11 +65,8 @@ const OracleGameView = () => {
         const readyState = GameAPI.finishShuffle();
         setGameState(readyState);
         
-        // Revelar la primera carta del centro después de un momento
-        setTimeout(() => {
-          const initialCardState = GameAPI.revealInitialCard();
-          handleGameStateUpdate(initialCardState);
-        }, 1000);
+        // El juego está listo, el usuario debe hacer clic en el grupo 13 para empezar
+        // No revelar automáticamente ninguna carta
       }, 8000);
     } catch (error) {
       console.error('Error al iniciar el juego:', error);
@@ -100,6 +97,14 @@ const OracleGameView = () => {
         recordMove(); // Registrar movimiento para estadísticas
         handleGameStateUpdate(clickResult);
       } else {
+        // Si hay información de estado en el resultado, actualizar el estado
+        if (clickResult.groups && clickResult.gameState) {
+          setGameState(prevState => ({
+            ...prevState,
+            ...clickResult
+          }));
+        }
+        
         console.warn('Clic no válido:', clickResult.message);
         showWarning(clickResult.message || 'Movimiento no válido');
       }
@@ -149,13 +154,8 @@ const OracleGameView = () => {
           const moveResult = GameAPI.moveCard(newState.currentCard, newState.targetGroup);
           handleGameStateUpdate(moveResult);
         }, 800); // Tiempo más corto para modo automático
-      } else {
-        // En modo manual, esperar a que el usuario haga clic
-        setTimeout(() => {
-          const moveResult = GameAPI.moveCard(newState.currentCard, newState.targetGroup);
-          handleGameStateUpdate(moveResult);
-        }, newState.moveDelay || 1500);
       }
+      // En modo manual, NO mover automáticamente - esperar clic del usuario
     } else if (newState.nextAction === 'waitForNextTurn') {
       setTimeout(() => {
         const nextTurnState = GameAPI.prepareNextTurn(
@@ -173,19 +173,35 @@ const OracleGameView = () => {
     } else if (newState.nextAction === 'waitForClick' && newState.gameMode === 'automatic') {
       // Si está en modo automático pero esperando clic, continuar automáticamente
       setTimeout(() => {
-        // Buscar un grupo con cartas para revelar
-        const availableGroups = Object.keys(newState.groups || {}).filter(groupNum => {
-          const group = newState.groups[groupNum];
-          return group && group.cards.length > 0;
-        });
+        // Usar el targetGroup sugerido por el backend o buscar uno disponible
+        let targetGroup = newState.targetGroup;
         
-        if (availableGroups.length > 0) {
-          // Elegir el primer grupo disponible o uno aleatorio
-          const targetGroup = parseInt(availableGroups[0]);
+        if (!targetGroup) {
+          // Buscar un grupo con cartas para revelar
+          const availableGroups = Object.keys(newState.groups || {}).filter(groupNum => {
+            const group = newState.groups[groupNum];
+            return group && group.cards.length > 0;
+          });
+          
+          if (availableGroups.length > 0) {
+            targetGroup = parseInt(availableGroups[0]);
+          }
+        }
+        
+        if (targetGroup) {
           const autoRevealResult = GameAPI.revealCard(targetGroup);
           handleGameStateUpdate(autoRevealResult);
         }
       }, newState.gameSpeed || 1000);
+    } else if (newState.nextAction === 'revealFromTarget') {
+      // Debe revelar automáticamente del grupo donde se colocó la carta
+      setTimeout(() => {
+        const revealResult = GameAPI.revealCard(newState.nextRevealGroup);
+        handleGameStateUpdate(revealResult);
+      }, newState.continueDelay || 1500);
+    } else if (newState.nextAction === 'gameEnd') {
+      // El juego ha terminado sin victoria explícita
+      showInfo('El juego ha terminado. No hay más movimientos posibles.', 'Fin del Juego');
     }
   };
 

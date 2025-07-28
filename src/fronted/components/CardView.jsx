@@ -13,9 +13,9 @@ const CardView = ({ card, isRevealed, isTopCard, isInRevealedPile, groupNumber }
   // Estilos para carta oculta (dorso)
   if (!isRevealed) {
     return (
-      <div className={`w-14 h-20 sm:w-16 sm:h-24 md:w-20 md:h-28 lg:w-24 lg:h-32 xl:w-28 xl:h-36 rounded-lg border-2 border-blue-400 bg-gradient-to-br from-blue-600 to-blue-800 shadow-lg relative overflow-hidden ${
-        isTopCard ? 'shadow-xl' : 'shadow-md'
-      }`}>
+      <div className={`w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 lg:w-28 lg:h-36 xl:w-32 xl:h-40 rounded-xl border-3 border-blue-400 bg-gradient-to-br from-blue-600 to-blue-800 shadow-xl relative overflow-hidden ${
+        isTopCard ? 'shadow-2xl ring-2 ring-blue-300/50' : 'shadow-lg'
+      } transition-all duration-300 hover:scale-105`}>
         {/* Patrón del dorso */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-500/30 to-blue-900/30"></div>
         
@@ -45,9 +45,9 @@ const CardView = ({ card, isRevealed, isTopCard, isInRevealedPile, groupNumber }
 
   // Estilos para carta revelada (frente)
   return (
-    <div className={`w-14 h-20 sm:w-16 sm:h-24 md:w-20 md:h-28 lg:w-24 lg:h-32 xl:w-28 xl:h-36 rounded-lg border-2 border-gray-300 bg-gradient-to-br from-white to-gray-50 shadow-lg relative overflow-hidden ${
-      isInRevealedPile ? 'shadow-md' : 'shadow-xl'
-    }`}>
+    <div className={`w-16 h-24 sm:w-20 sm:h-28 md:w-24 md:h-32 lg:w-28 lg:h-36 xl:w-32 xl:h-40 rounded-xl border-3 border-gray-300 bg-gradient-to-br from-white to-gray-50 shadow-xl relative overflow-hidden ${
+      isInRevealedPile ? 'shadow-lg scale-90' : 'shadow-2xl ring-2 ring-white/50'
+    } transition-all duration-300`}>
       {/* Fondo de la carta */}
       <div className={`absolute inset-0 ${
         isFaceCard 
