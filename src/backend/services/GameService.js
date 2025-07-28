@@ -108,6 +108,9 @@ class GameService {
         }
       }
     }
+    console.log(`Barajado realizado: ${cards.length} cartas, corte en ${cutPoint}`);
+    console.log(`Resultado del barajado: ${result.length} cartas`);
+
     
     return result;
   }

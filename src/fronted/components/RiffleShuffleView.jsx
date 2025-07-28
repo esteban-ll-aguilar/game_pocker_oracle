@@ -73,15 +73,52 @@
      setParticlesRef(particles);
    }, []);
  
+   // Función de barajado
+   const performRealisticShuffle = useCallback((cards) => {
+     const shuffled = [...cards];
+     
+     // Simular corte imperfecto
+     const cutPoint = Math.floor(shuffled.length / 2) + Math.floor(Math.random() * 6) - 3;
+     const leftHalf = shuffled.slice(0, cutPoint);
+     const rightHalf = shuffled.slice(cutPoint);
+     
+     const result = [];
+     let leftIndex = 0;
+     let rightIndex = 0;
+     
+     // Riffle shuffle imperfecto
+     while (leftIndex < leftHalf.length || rightIndex < rightHalf.length) {
+       // Decidir de qué lado tomar cartas (no alternado perfecto)
+       const takeFromLeft = Math.random() > 0.5;
+       const burstSize = Math.floor(Math.random() * 3) + 1; // 1-3 cartas por vez
+       
+       for (let i = 0; i < burstSize; i++) {
+         if (takeFromLeft && leftIndex < leftHalf.length) {
+           result.push(leftHalf[leftIndex++]);
+         } else if (rightIndex < rightHalf.length) {
+           result.push(rightHalf[rightIndex++]);
+         }
+       }
+     }
+     
+     return result;
+   }, []);
+
    const cinematicRiffleShuffle = useCallback(() => {
      if (isAnimating) return;
      setIsAnimating(true);
      generateParticles();
- 
+
      const allCards = Array.from(containerRef.current.children);
-     const middle = Math.floor(allCards.length / 2);
-     const leftHalf = allCards.slice(0, middle);
-     const rightHalf = allCards.slice(middle);
+     
+     // Usar la función de barajado realista para determinar el orden final
+     const cardIndices = Array.from({ length: allCards.length }, (_, i) => i);
+     const shuffledIndices = performRealisticShuffle(cardIndices);
+     
+     // Determinar las mitades basándose en el corte imperfecto (similar a performRealisticShuffle)
+     const cutPoint = Math.floor(allCards.length / 2) + Math.floor(Math.random() * 6) - 3;
+     const leftHalf = allCards.slice(0, cutPoint);
+     const rightHalf = allCards.slice(cutPoint);
      const positions = new Map();
  
      // Resetear con posicionamiento seguro
@@ -102,7 +139,7 @@
        setCurrentPhase("Dividiendo el mazo...");
        const newPositions = new Map();
        
-       // Fase 1: División con anti-colisión mejorada
+       // Fase 1: División con anti-colisión
        leftHalf.forEach((card, i) => {
          const targetX = -220 - i * 12;
          const targetY = -30 - i * 4; // Reducido para menor altura
@@ -116,10 +153,10 @@
        });
  
        rightHalf.forEach((card, i) => {
-         const targetX = 220 + i * 12;
+         const targetX = 220 + i * 12; 
          const targetY = -30 - i * 4; // Reducido para menor altura
-         const safePos = findSafePosition(targetX, targetY, newPositions, middle + i);
-         newPositions.set(middle + i, safePos);
+         const safePos = findSafePosition(targetX, targetY, newPositions, cutPoint + i);
+         newPositions.set(cutPoint + i, safePos);
          
          card.style.transition = 'transform 2.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 2.2s ease-out';
          card.style.transform = `translateX(${safePos.x}px) translateY(${safePos.y}px) translateZ(${i * 8}px) rotateX(${15 + i * 2.5}deg) rotateY(${25 - i * 2}deg) rotateZ(${35 - i * 3}deg) scale(${1.03 + i * 0.015})`;
@@ -151,8 +188,8 @@
            const targetX = 100 + i * 8;
            const arcHeight = 80 + i * 12; // Reducido para menor altura
            const targetY = -arcHeight - Math.sin(i * 0.3) * 8; // Ajustado para arco más bajo
-           const safePos = findSafePosition(targetX, targetY, arcPositions, middle + i);
-           arcPositions.set(middle + i, safePos);
+           const safePos = findSafePosition(targetX, targetY, arcPositions, cutPoint + i);
+           arcPositions.set(cutPoint + i, safePos);
            
            card.style.transition = 'transform 2.5s cubic-bezier(0.68, -0.55, 0.265, 1.55), filter 2.5s ease-out';
            card.style.transform = `translateX(${safePos.x}px) translateY(${safePos.y}px) translateZ(${i * 10}px) rotateX(${50 + i * 4}deg) rotateY(${25 - i * 2}deg) rotateZ(${40 - i * 2.5}deg) scale(${1.06 + i * 0.02})`;
@@ -247,12 +284,18 @@
                setTimeout(() => {
                  setCurrentPhase("Perfección final...");
                  
-                 // Fase 6: Alineación perfecta con efectos de finalización
+                 // Fase 6: Alineación perfecta con efectos de finalización usando el orden realista
                  shuffledOrder.forEach((item, i) => {
                    const { card } = item;
                    card.style.transition = 'transform 2.5s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 2.5s ease-out';
-                   card.style.transform = `translateX(${i * 0.5}px) translateY(${-i * 0.4}px) translateZ(${i * 0.6}px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1)`;
-                   card.style.zIndex = i;
+                   
+                   // Usar el índice del barajado realista para la posición final
+                   const cardId = parseInt(card.key);
+                   const finalIndex = shuffledIndices.indexOf(cardId);
+                   const finalPosition = finalIndex !== -1 ? finalIndex : i;
+                   
+                   card.style.transform = `translateX(${finalPosition * 0.5}px) translateY(${-finalPosition * 0.4}px) translateZ(${finalPosition * 0.6}px) rotateX(0deg) rotateY(0deg) rotateZ(0deg) scale(1)`;
+                   card.style.zIndex = finalPosition;
                    card.style.filter = 'brightness(1) saturate(1) drop-shadow(0 2px 4px rgba(0,0,0,0.1))';
                  });
  
@@ -269,7 +312,7 @@
          }, 2000);
        }, 1800);
      }, 300);
-   }, [isAnimating, findSafePosition, generateParticles]);
+   }, [isAnimating, findSafePosition, generateParticles, performRealisticShuffle]);
  
    useEffect(() => {
      cinematicRiffleShuffle(); 
@@ -383,7 +426,7 @@
          </div>
        </div>
  
-       {/* Botón épico */}
+       {/* Botón  */}
        <button
          onClick={cinematicRiffleShuffle}
          disabled={isAnimating}
@@ -420,4 +463,3 @@
      </div>
    );
  }
- 
